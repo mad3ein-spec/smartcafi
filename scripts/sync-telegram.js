@@ -3,7 +3,7 @@ const path = require('path');
 
 // ─── تنظیمات ───────────────────────────────────────────────
 const channelId      = 'smartcafi_news';
-const postsPerPage   = 15;
+const postsPerPage   = 10;
 const archiveFile    = path.join(__dirname, '..', 'posts.json');
 const pageFile       = path.join(__dirname, '..', 'announcements.html');
 const configFile     = path.join(__dirname, '..', 'pinned-config.json');
@@ -81,7 +81,6 @@ async function fetchPosts(beforeId = null) {
   return posts;
 }
 
-// همه پست‌های موجود در تلگرام را جمع‌آوری می‌کند
 async function fetchAllNew(knownIds) {
   let allNew   = [];
   let beforeId = null;
@@ -95,33 +94,73 @@ async function fetchAllNew(knownIds) {
     const newOnes = batch.filter(p => !knownIds.has(p.postId));
     allNew = allNew.concat(newOnes);
 
-    // اگر به پست‌های قدیمی رسیدیم، متوقف می‌شویم
     if (newOnes.length < batch.length) break;
 
-    beforeId = batch[0].numId; // قدیمی‌ترین آیتم این دسته
-    await new Promise(r => setTimeout(r, 700)); // throttle
+    beforeId = batch[0].numId;
+    await new Promise(r => setTimeout(r, 700));
   }
 
   return allNew;
 }
 
-// ─── ساخت HTML یک پست ─────────────────────────────────────
-function postToHtml(post, dateFormatter, pinned = false) {
-  const firstLine = post.text.split('\n')[0].trim();
-  const headline  = firstLine.length > 70 ? firstLine.slice(0, 70) + '…' : firstLine;
+// ─── ساخت HTML یک پست معمولی ──────────────────────────────
+function postToHtml(post, dateFormatter) {
+  const firstLine   = post.text.split('\n')[0].trim();
+  const headline    = firstLine.length > 70 ? firstLine.slice(0, 70) + '…' : firstLine;
   const displayDate = dateFormatter.format(new Date(post.isoDate));
 
-  const pinnedBadge = pinned
-    ? `<span style="background:#33417A;color:#fff;font-size:0.7rem;padding:2px 8px;border-radius:4px;margin-right:8px;">📌 مهم</span>`
-    : '';
-
-  return `<article class="info-card" style="display:block; border-right:4px solid ${pinned ? '#e63946' : '#33417A'}; margin-bottom:16px; padding:16px;" itemscope itemtype="https://schema.org/SocialMediaPosting">
+  return `<article class="info-card" style="display:block; border-right:4px solid #33417A; margin-bottom:16px; padding:16px;" itemscope itemtype="https://schema.org/SocialMediaPosting">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:8px; flex-wrap:wrap;">
-                <h3 itemprop="headline" style="margin:0; font-size:1rem; color:#33417A;">${pinnedBadge}${headline}</h3>
+                <h3 itemprop="headline" style="margin:0; font-size:1rem; color:#33417A;">${headline}</h3>
                 <time itemprop="datePublished" datetime="${post.isoDate}" style="font-size:0.78rem; color:#888; white-space:nowrap;">${displayDate}</time>
             </div>
             <p itemprop="articleBody" style="line-height:1.8; white-space:pre-line; margin:0 0 10px 0;">${post.text}</p>
             <a itemprop="url" href="${post.postLink}" target="_blank" rel="nofollow noopener" style="font-size:0.8rem; color:#229ED9; text-decoration:none;">مشاهده پست اصلی در کانال تلگرام ←</a>
+        </article>`;
+}
+
+// ─── ساخت HTML پست پین‌شده (گرافیکی) ─────────────────────
+function pinnedPostToHtml(post, dateFormatter) {
+  const firstLine   = post.text.split('\n')[0].trim();
+  const headline    = firstLine.length > 70 ? firstLine.slice(0, 70) + '…' : firstLine;
+  const displayDate = dateFormatter.format(new Date(post.isoDate));
+
+  return `<article style="
+              display:block;
+              position:relative;
+              background: linear-gradient(135deg, #fff8f0 0%, #fff3e8 100%);
+              border: 1.5px solid #f0b070;
+              border-right: 5px solid #e07000;
+              border-radius: 10px;
+              margin-bottom: 14px;
+              padding: 18px 18px 14px;
+              box-shadow: 0 2px 10px rgba(224,112,0,0.08);
+              overflow: hidden;
+            " itemscope itemtype="https://schema.org/SocialMediaPosting">
+
+            <div style="
+              position:absolute; top:0; left:0;
+              background: linear-gradient(135deg, #e07000, #c45c00);
+              color:#fff;
+              font-size:0.65rem;
+              font-weight:bold;
+              padding: 4px 12px 4px 10px;
+              border-radius: 0 0 10px 0;
+              letter-spacing:0.04em;
+            ">📌 مهم</div>
+
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; flex-wrap:wrap; margin-top:16px;">
+                <h3 itemprop="headline" style="margin:0; font-size:1rem; color:#7a3800; font-weight:700;">${headline}</h3>
+                <time itemprop="datePublished" datetime="${post.isoDate}" style="font-size:0.75rem; color:#b07030; white-space:nowrap;">${displayDate}</time>
+            </div>
+
+            <p itemprop="articleBody" style="line-height:1.9; white-space:pre-line; margin:0 0 12px 0; color:#3d2000; font-size:0.95rem;">${post.text}</p>
+
+            <a itemprop="url" href="${post.postLink}" target="_blank" rel="nofollow noopener"
+               style="display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; color:#fff;
+                      background:#e07000; padding:5px 14px; border-radius:20px; text-decoration:none;">
+              مشاهده در تلگرام ←
+            </a>
         </article>`;
 }
 
@@ -146,7 +185,6 @@ function buildPagination(currentPage, totalPages) {
 // ─── اصلی ─────────────────────────────────────────────────
 async function main() {
 
-  // بارگذاری آرشیو موجود
   let archive = [];
   if (fs.existsSync(archiveFile)) {
     archive = JSON.parse(fs.readFileSync(archiveFile, 'utf8'));
@@ -154,35 +192,24 @@ async function main() {
   const knownIds = new Set(archive.map(p => p.postId));
   console.log(`پست‌های موجود در آرشیو: ${archive.length}`);
 
-  // بارگذاری config پین دستی
   let pinnedLinks = [];
   if (fs.existsSync(configFile)) {
     pinnedLinks = JSON.parse(fs.readFileSync(configFile, 'utf8')).pinned || [];
   }
 
-  // دریافت پست‌های جدید
   const newPosts = await fetchAllNew(knownIds);
-  console.log(`پست‌های جدید دریافت‌شده: ${newPosts.length}`);
+  console.log(`پست‌های جدید: ${newPosts.length}`);
 
-  // افزودن به آرشیو و مرتب‌سازی بر اساس تاریخ (جدید به قدیم)
   archive = [...newPosts, ...archive];
   archive.sort((a, b) => new Date(b.isoDate) - new Date(a.isoDate));
-
-  // ذخیره آرشیو
   fs.writeFileSync(archiveFile, JSON.stringify(archive, null, 2));
-  console.log(`آرشیو ذخیره شد. کل پست‌ها: ${archive.length}`);
+  console.log(`کل آرشیو: ${archive.length}`);
 
-  // ─── تعیین پست‌های پین‌شده ───────────────────────────────
-  const pinnedSet   = new Set(pinnedLinks);
-  const pinnedPosts = archive.filter(
-    p => pinnedSet.has(p.postLink) || isImportant(p.text)
-  ).slice(0, 10);
-
-  // پست‌های غیرپین برای آرشیو
+  const pinnedSet     = new Set(pinnedLinks);
+  const pinnedPosts   = archive.filter(p => pinnedSet.has(p.postLink) || isImportant(p.text)).slice(0, 10);
   const pinnedPostIds = new Set(pinnedPosts.map(p => p.postId));
   const regularPosts  = archive.filter(p => !pinnedPostIds.has(p.postId));
 
-  // ─── صفحه‌بندی ─────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(regularPosts.length / postsPerPage));
 
   const dateFormatter = new Intl.DateTimeFormat('fa-IR', {
@@ -199,24 +226,29 @@ async function main() {
 
     let postsHtml = '';
 
-    // پین‌ها فقط در صفحه اول
     if (pageNum === 1 && pinnedPosts.length > 0) {
-      postsHtml += `<div style="margin-bottom:24px;">
-        <h2 style="font-size:1rem; color:#e63946; border-bottom:2px solid #e63946; padding-bottom:6px; margin-bottom:12px;">📌 اطلاعیه‌های مهم</h2>`;
-      pinnedPosts.forEach(p => { postsHtml += postToHtml(p, dateFormatter, true) + '\n'; });
-      postsHtml += `</div><hr style="border:none;border-top:1px solid #e8eaf0;margin:24px 0;">
-        <h2 style="font-size:1rem; color:#33417A; margin-bottom:12px;">📋 همه اطلاعیه‌ها</h2>`;
+      postsHtml += `<div style="margin-bottom:28px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+          <span style="display:inline-block; width:4px; height:20px; background:#e07000; border-radius:2px;"></span>
+          <h2 style="margin:0; font-size:1rem; color:#e07000;">اطلاعیه‌های مهم</h2>
+        </div>`;
+      pinnedPosts.forEach(p => { postsHtml += pinnedPostToHtml(p, dateFormatter) + '\n'; });
+      postsHtml += `</div>
+        <hr style="border:none; border-top:1px solid #e8eaf0; margin:24px 0;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+          <span style="display:inline-block; width:4px; height:20px; background:#33417A; border-radius:2px;"></span>
+          <h2 style="margin:0; font-size:1rem; color:#33417A;">همه اطلاعیه‌ها</h2>
+        </div>`;
     }
 
     if (slice.length === 0) {
       postsHtml += '<div class="info-card" style="display:block; text-align:center;"><p>در حال حاضر اطلاعیه‌ای ثبت نشده است.</p></div>\n';
     } else {
-      slice.forEach(p => { postsHtml += postToHtml(p, dateFormatter, false) + '\n'; });
+      slice.forEach(p => { postsHtml += postToHtml(p, dateFormatter) + '\n'; });
     }
 
     postsHtml += pagination;
 
-    // schema برای پست‌های این صفحه
     const schemaItems = slice.map((post, i) => ({
       '@type': 'ListItem',
       position: (pageNum - 1) * postsPerPage + i + 1,
@@ -240,15 +272,13 @@ async function main() {
       ? 'اطلاعیه‌های ثبت‌نام - کافی‌نت بیات'
       : `اطلاعیه‌ها - صفحه ${pageNum} - کافی‌نت بیات`;
 
-    let pageHtml = baseTemplate
-      .replace(/<title>[^<]*<\/title>/, `<title>${pageTitle}</title>`);
+    let pageHtml = baseTemplate.replace(/<title>[^<]*<\/title>/, `<title>${pageTitle}</title>`);
 
-    pageHtml = replaceBetween(pageHtml, '<!-- START_POSTS -->',       '<!-- END_POSTS -->',         '\n        ' + postsHtml);
+    pageHtml = replaceBetween(pageHtml, '<!-- START_POSTS -->',        '<!-- END_POSTS -->',         '\n        ' + postsHtml);
     pageHtml = replaceBetween(pageHtml, '<!-- LAST_UPDATED_START -->', '<!-- LAST_UPDATED_END -->',  lastUpdatedText);
-    pageHtml = replaceBetween(pageHtml, '<!-- START_SCHEMA -->',      '<!-- END_SCHEMA -->',
+    pageHtml = replaceBetween(pageHtml, '<!-- START_SCHEMA -->',       '<!-- END_SCHEMA -->',
       `\n    <script type="application/ld+json">\n${schemaJson}\n    </script>\n    `);
 
-    // canonical + prev/next برای سئو
     const canonical = pageNum === 1 ? 'announcements.html' : `announcements-page-${pageNum}.html`;
     const prevLink  = pageNum > 1
       ? `<link rel="prev" href="${pageNum === 2 ? 'announcements.html' : `announcements-page-${pageNum - 1}.html`}">`
@@ -256,8 +286,8 @@ async function main() {
     const nextLink  = pageNum < totalPages
       ? `<link rel="next" href="announcements-page-${pageNum + 1}.html">`
       : '';
-    const seoTags = `\n    <link rel="canonical" href="${canonical}">\n    ${prevLink}\n    ${nextLink}`;
-    pageHtml = pageHtml.replace('</head>', seoTags + '\n</head>');
+    pageHtml = pageHtml.replace('</head>',
+      `\n    <link rel="canonical" href="${canonical}">\n    ${prevLink}\n    ${nextLink}\n</head>`);
 
     const outFile = pageNum === 1
       ? path.join(__dirname, '..', 'announcements.html')
