@@ -7,13 +7,10 @@ const postsPerPage   = 10;
 const archiveFile    = path.join(__dirname, '..', 'posts.json');
 const pageFile       = path.join(__dirname, '..', 'announcements.html');
 const configFile     = path.join(__dirname, '..', 'pinned-config.json');
+const pagesDir       = path.join(__dirname, '..', 'announcements-pages');
 
-// کلمات کلیدی که پست را خودکار پین می‌کنند
-const AUTO_PIN_KEYWORDS = [
-  'ایران خودرو', 'ایران‌خودرو', 'سایپا', 'کنکور', 'کارشناسی ارشد',
-  'دکتری', 'وام', 'یارانه', 'ثبت‌نام', 'ثبت نام', 'استخدام',
-  'آزمون', 'مهلت', 'فوری', 'مهم'
-];
+// پست‌هایی که با این عبارت شروع شوند پین می‌شوند
+const PIN_PREFIX = 'اطلاعیه مهم';
 
 // ─── ابزارها ───────────────────────────────────────────────
 function replaceBetween(source, startMarker, endMarker, replacement) {
@@ -40,10 +37,10 @@ function decodeEntities(text) {
 }
 
 function isImportant(text) {
-  return AUTO_PIN_KEYWORDS.some(kw => text.includes(kw));
+  return text.trimStart().startsWith(PIN_PREFIX);
 }
 
-// ─── دریافت پست‌ها از تلگرام (با pagination) ──────────────
+// ─── دریافت پست‌ها از تلگرام ──────────────────────────────
 async function fetchPosts(beforeId = null) {
   const url = beforeId
     ? `https://t.me/s/${channelId}?before=${beforeId}`
@@ -103,7 +100,7 @@ async function fetchAllNew(knownIds) {
   return allNew;
 }
 
-// ─── ساخت HTML یک پست معمولی ──────────────────────────────
+// ─── HTML پست معمولی ──────────────────────────────────────
 function postToHtml(post, dateFormatter) {
   const firstLine   = post.text.split('\n')[0].trim();
   const headline    = firstLine.length > 70 ? firstLine.slice(0, 70) + '…' : firstLine;
@@ -119,7 +116,7 @@ function postToHtml(post, dateFormatter) {
         </article>`;
 }
 
-// ─── ساخت HTML پست پین‌شده (گرافیکی) ─────────────────────
+// ─── HTML پست پین‌شده ─────────────────────────────────────
 function pinnedPostToHtml(post, dateFormatter) {
   const firstLine   = post.text.split('\n')[0].trim();
   const headline    = firstLine.length > 70 ? firstLine.slice(0, 70) + '…' : firstLine;
@@ -137,7 +134,6 @@ function pinnedPostToHtml(post, dateFormatter) {
               box-shadow: 0 2px 10px rgba(224,112,0,0.08);
               overflow: hidden;
             " itemscope itemtype="https://schema.org/SocialMediaPosting">
-
             <div style="
               position:absolute; top:0; left:0;
               background: linear-gradient(135deg, #e07000, #c45c00);
@@ -148,14 +144,11 @@ function pinnedPostToHtml(post, dateFormatter) {
               border-radius: 0 0 10px 0;
               letter-spacing:0.04em;
             ">📌 مهم</div>
-
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; flex-wrap:wrap; margin-top:16px;">
                 <h3 itemprop="headline" style="margin:0; font-size:1rem; color:#7a3800; font-weight:700;">${headline}</h3>
                 <time itemprop="datePublished" datetime="${post.isoDate}" style="font-size:0.75rem; color:#b07030; white-space:nowrap;">${displayDate}</time>
             </div>
-
             <p itemprop="articleBody" style="line-height:1.9; white-space:pre-line; margin:0 0 12px 0; color:#3d2000; font-size:0.95rem;">${post.text}</p>
-
             <a itemprop="url" href="${post.postLink}" target="_blank" rel="nofollow noopener"
                style="display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; color:#fff;
                       background:#e07000; padding:5px 14px; border-radius:20px; text-decoration:none;">
@@ -164,26 +157,31 @@ function pinnedPostToHtml(post, dateFormatter) {
         </article>`;
 }
 
-// ─── ساخت ناوبری صفحات ─────────────────────────────────────
+// ─── ناوبری صفحات ─────────────────────────────────────────
 function buildPagination(currentPage, totalPages) {
   if (totalPages <= 1) return '';
 
+  // لینک صفحات: صفحه ۱ همان announcements.html است، بقیه در پوشه announcements-pages
+  function pageHref(i) {
+    return i === 1 ? '../announcements.html' : `page-${i}.html`;
+  }
+
   let links = '';
   for (let i = 1; i <= totalPages; i++) {
-    const href   = i === 1 ? 'announcements.html' : `announcements-page-${i}.html`;
     const active = i === currentPage
       ? 'background:#33417A;color:#fff;'
       : 'background:#f0f2f8;color:#33417A;';
-    links += `<a href="${href}" style="${active} padding:6px 14px; border-radius:6px; text-decoration:none; font-size:0.9rem; margin:0 3px;">${i}</a>`;
+    links += `<a href="${pageHref(i)}" style="${active} padding:6px 14px; border-radius:6px; text-decoration:none; font-size:0.9rem; margin:0 3px;">${i}</a>`;
   }
 
-  return `<div style="text-align:center; margin: 24px 0; direction:rtl;">
-      ${links}
-    </div>`;
+  return `<div style="text-align:center; margin: 24px 0; direction:rtl;">${links}</div>`;
 }
 
 // ─── اصلی ─────────────────────────────────────────────────
 async function main() {
+
+  // ساخت پوشه صفحات اگر وجود ندارد
+  if (!fs.existsSync(pagesDir)) fs.mkdirSync(pagesDir, { recursive: true });
 
   let archive = [];
   if (fs.existsSync(archiveFile)) {
@@ -274,27 +272,29 @@ async function main() {
 
     let pageHtml = baseTemplate.replace(/<title>[^<]*<\/title>/, `<title>${pageTitle}</title>`);
 
-    pageHtml = replaceBetween(pageHtml, '<!-- START_POSTS -->',        '<!-- END_POSTS -->',         '\n        ' + postsHtml);
-    pageHtml = replaceBetween(pageHtml, '<!-- LAST_UPDATED_START -->', '<!-- LAST_UPDATED_END -->',  lastUpdatedText);
+    pageHtml = replaceBetween(pageHtml, '<!-- START_POSTS -->',        '<!-- END_POSTS -->',        '\n        ' + postsHtml);
+    pageHtml = replaceBetween(pageHtml, '<!-- LAST_UPDATED_START -->', '<!-- LAST_UPDATED_END -->', lastUpdatedText);
     pageHtml = replaceBetween(pageHtml, '<!-- START_SCHEMA -->',       '<!-- END_SCHEMA -->',
       `\n    <script type="application/ld+json">\n${schemaJson}\n    </script>\n    `);
 
-    const canonical = pageNum === 1 ? 'announcements.html' : `announcements-page-${pageNum}.html`;
-    const prevLink  = pageNum > 1
-      ? `<link rel="prev" href="${pageNum === 2 ? 'announcements.html' : `announcements-page-${pageNum - 1}.html`}">`
-      : '';
-    const nextLink  = pageNum < totalPages
-      ? `<link rel="next" href="announcements-page-${pageNum + 1}.html">`
-      : '';
+    // canonical و prev/next — مسیرها نسبت به موقعیت فایل
+    const canonical = pageNum === 1
+      ? 'announcements.html'
+      : `announcements-pages/page-${pageNum}.html`;
+    const prevHref  = pageNum === 2 ? '../announcements.html' : `page-${pageNum - 1}.html`;
+    const nextHref  = `page-${pageNum + 1}.html`;
+    const prevLink  = pageNum > 1        ? `<link rel="prev" href="${prevHref}">` : '';
+    const nextLink  = pageNum < totalPages ? `<link rel="next" href="${nextHref}">` : '';
     pageHtml = pageHtml.replace('</head>',
       `\n    <link rel="canonical" href="${canonical}">\n    ${prevLink}\n    ${nextLink}\n</head>`);
 
+    // صفحه ۱ → announcements.html  |  بقیه → announcements-pages/page-N.html
     const outFile = pageNum === 1
       ? path.join(__dirname, '..', 'announcements.html')
-      : path.join(__dirname, '..', `announcements-page-${pageNum}.html`);
+      : path.join(pagesDir, `page-${pageNum}.html`);
 
     fs.writeFileSync(outFile, pageHtml);
-    console.log(`صفحه ${pageNum} ذخیره شد: ${path.basename(outFile)}`);
+    console.log(`صفحه ${pageNum} ذخیره شد: ${path.relative(path.join(__dirname, '..'), outFile)}`);
   }
 
   console.log('✅ سایت با موفقیت بروزرسانی شد.');
