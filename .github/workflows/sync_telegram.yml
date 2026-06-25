@@ -1,0 +1,71 @@
+name: Sync Telegram Channel
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Fetch Telegram Posts
+        run: |
+          node -e "
+          const fs = require('fs');
+          const channelId = 'cofinetbayat'; 
+          
+          fetch(\`https://t.me/s/\${channelId}\`)
+            .then(res => res.text())
+            .then(html => {
+              const regex = /<div class=\"tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>/g;
+              let matches;
+              let postsHtml = '';
+              let allMatches = [];
+              
+              while ((matches = regex.exec(html)) !== null) {
+                allMatches.push(matches[1].trim());
+              }
+              
+              const latestPosts = allMatches.slice(-5).reverse();
+              
+              latestPosts.forEach(text => {
+                if(text) {
+                  let cleanText = text.replace(/<br\s*\/?>/mg, '\n').replace(/<[^>]*>/g, '');
+                  postsHtml += \`<div class=\"info-card\" style=\"display: block; border-right: 4px solid #33417A; margin-bottom: 16px;\"><p style=\"line-height: 1.8; white-space: pre-line;\">\${cleanText}</p></div>\`;
+                }
+              });
+              
+              if(!postsHtml) {
+                postsHtml = '<div class=\"info-card\" style=\"display: block; text-align:center;\"><p>در حال حاضر اطلاعیه جدیدی ثبت نشده است.</p></div>';
+              }
+              
+              let pageHtml = fs.readFileSync('announcements.html', 'utf8');
+              const startMarker = '<div style=\"display: flex; flex-direction: column; gap: 16px; margin-bottom: 30px;\" id=\"posts-container\">';
+              const endMarker = '</div>\n\n        ';
+              
+              const startIndex = pageHtml.indexOf(startMarker) + startMarker.length;
+              const endIndex = pageHtml.indexOf(endMarker);
+              
+              if(startIndex > -1 && endIndex > -1) {
+                pageHtml = pageHtml.substring(0, startIndex) + '\n' + postsHtml + '\n        ' + pageHtml.substring(endIndex);
+                fs.writeFileSync('announcements.html', pageHtml);
+                console.log('سایت با موفقیت بروزرسانی شد.');
+              }
+            });
+          "
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add announcements.html
+          git diff --quiet && git diff --staged --quiet || git commit -m "بروزرسانی خودکار اطلاعیه‌ها از تلگرام"
+          git push
