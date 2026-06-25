@@ -27,6 +27,6 @@ jobs:
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
           git add announcements.html posts.json
-          git add --ignore-unmatch announcements-page-*.html
+          find . -name 'announcements-page-*.html' | xargs git add 2>/dev/null || true
           git diff --quiet && git diff --staged --quiet || git commit -m "بروزرسانی خودکار اطلاعیه‌ها از تلگرام"
           git push
