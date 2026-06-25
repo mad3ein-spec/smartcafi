@@ -20,7 +20,7 @@ jobs:
         run: |
           node -e "
           const fs = require('fs');
-          const channelId = 'cofinetbayat'; 
+          const channelId = 'smartcafi_news'; 
           
           fetch(\`https://t.me/s/\${channelId}\`)
             .then(res => res.text())
