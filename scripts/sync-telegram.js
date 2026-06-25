@@ -9,9 +9,9 @@ const pageFile     = path.join(__dirname, '..', 'announcements.html');
 const configFile   = path.join(__dirname, '..', 'pinned-config.json');
 const pagesDir     = path.join(__dirname, '..', 'announcements-pages');
 
-const PIN_PREFIX      = 'اطلاعیه مهم';
-const PIN_MAX_COUNT   = 3;   // حداکثر تعداد پین‌های نمایشی
-const PIN_MAX_DAYS    = 5;   // پس از این روزها از بخش مهم حذف می‌شود
+const PIN_PREFIX    = 'اطلاعیه مهم';
+const PIN_MAX_COUNT = 3;
+const PIN_MAX_DAYS  = 5;
 
 // ─── ابزارها ───────────────────────────────────────────────
 function replaceBetween(source, startMarker, endMarker, replacement) {
@@ -44,6 +44,15 @@ function isImportant(text) {
 function isStillPinnable(isoDate) {
   const ageMs = Date.now() - new Date(isoDate).getTime();
   return ageMs < PIN_MAX_DAYS * 24 * 60 * 60 * 1000;
+}
+
+// اگه متن با PIN_PREFIX شروع شه، اون خط رو حذف می‌کنه
+function stripPinPrefix(text) {
+  const lines = text.split('\n');
+  if (lines[0].trim().startsWith(PIN_PREFIX)) {
+    return lines.slice(1).join('\n').trimStart();
+  }
+  return text;
 }
 
 // ─── دریافت یک صفحه از تلگرام ─────────────────────────────
@@ -84,9 +93,8 @@ async function fetchPosts(beforeId = null) {
   return posts;
 }
 
-// دریافت همه پست‌های فعلی کانال (برای تشخیص حذف‌شده‌ها)
 async function fetchAllLivePosts() {
-  const allLive = new Map(); // postId → post
+  const allLive = new Map();
   let beforeId  = null;
   let page      = 0;
 
@@ -121,7 +129,9 @@ function postToHtml(post, dateFormatter) {
 
 // ─── HTML پست پین‌شده ─────────────────────────────────────
 function pinnedPostToHtml(post, dateFormatter) {
-  const firstLine   = post.text.split('\n')[0].trim();
+  // خط «اطلاعیه مهم» را از متن و تیتر حذف می‌کنیم
+  const cleanedText = stripPinPrefix(post.text);
+  const firstLine   = cleanedText.split('\n')[0].trim();
   const headline    = firstLine.length > 70 ? firstLine.slice(0, 70) + '…' : firstLine;
   const displayDate = dateFormatter.format(new Date(post.isoDate));
 
@@ -135,12 +145,12 @@ function pinnedPostToHtml(post, dateFormatter) {
             <div style="position:absolute; top:0; left:0;
               background: linear-gradient(135deg, #e07000, #c45c00); color:#fff;
               font-size:0.65rem; font-weight:bold; padding: 4px 12px 4px 10px;
-              border-radius: 0 0 10px 0; letter-spacing:0.04em;">📌 مهم</div>
+              border-radius: 0 0 10px 0; letter-spacing:0.04em;">📌 اطلاعیه مهم</div>
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; flex-wrap:wrap; margin-top:16px;">
                 <h3 itemprop="headline" style="margin:0; font-size:1rem; color:#7a3800; font-weight:700;">${headline}</h3>
                 <time itemprop="datePublished" datetime="${post.isoDate}" style="font-size:0.75rem; color:#b07030; white-space:nowrap;">${displayDate}</time>
             </div>
-            <p itemprop="articleBody" style="line-height:1.9; white-space:pre-line; margin:0 0 12px 0; color:#3d2000; font-size:0.95rem;">${post.text}</p>
+            <p itemprop="articleBody" style="line-height:1.9; white-space:pre-line; margin:0 0 12px 0; color:#3d2000; font-size:0.95rem;">${cleanedText}</p>
             <a itemprop="url" href="${post.postLink}" target="_blank" rel="nofollow noopener"
                style="display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; color:#fff;
                       background:#e07000; padding:5px 14px; border-radius:20px; text-decoration:none;">
@@ -150,11 +160,17 @@ function pinnedPostToHtml(post, dateFormatter) {
 }
 
 // ─── ناوبری صفحات ─────────────────────────────────────────
-function buildPagination(currentPage, totalPages) {
+// pageNum: شماره صفحه فعلی | fromRoot: آیا فایل در root است؟
+function buildPagination(currentPage, totalPages, fromRoot) {
   if (totalPages <= 1) return '';
 
   function pageHref(i) {
-    return i === 1 ? '../announcements.html' : `page-${i}.html`;
+    if (i === 1) {
+      // صفحه اول همیشه announcements.html است
+      return fromRoot ? 'announcements.html' : '../announcements.html';
+    }
+    // صفحات بعدی در پوشه announcements-pages هستند
+    return fromRoot ? `announcements-pages/page-${i}.html` : `page-${i}.html`;
   }
 
   let links = '';
@@ -173,53 +189,44 @@ async function main() {
 
   if (!fs.existsSync(pagesDir)) fs.mkdirSync(pagesDir, { recursive: true });
 
-  // بارگذاری آرشیو قبلی
   let archive = [];
   if (fs.existsSync(archiveFile)) {
     archive = JSON.parse(fs.readFileSync(archiveFile, 'utf8'));
   }
   console.log(`آرشیو قبلی: ${archive.length} پست`);
 
-  // بارگذاری config پین دستی
   let pinnedLinks = [];
   if (fs.existsSync(configFile)) {
     pinnedLinks = JSON.parse(fs.readFileSync(configFile, 'utf8')).pinned || [];
   }
 
-  // دریافت همه پست‌های زنده از تلگرام
   const livePosts = await fetchAllLivePosts();
   console.log(`پست‌های زنده در کانال: ${livePosts.size}`);
 
-  // ── حذف پست‌هایی که از کانال پاک شده‌اند ────────────────
   const beforeCount = archive.length;
   archive = archive.filter(p => livePosts.has(p.postId));
   console.log(`حذف‌شده از کانال: ${beforeCount - archive.length} پست`);
 
-  // ── افزودن پست‌های جدید ──────────────────────────────────
   const archiveIds = new Set(archive.map(p => p.postId));
   const newPosts   = [...livePosts.values()].filter(p => !archiveIds.has(p.postId));
   console.log(`پست‌های جدید: ${newPosts.length}`);
 
   archive = [...newPosts, ...archive];
   archive.sort((a, b) => new Date(b.isoDate) - new Date(a.isoDate));
-
   fs.writeFileSync(archiveFile, JSON.stringify(archive, null, 2));
-  console.log(`آرشیو ذخیره شد. کل: ${archive.length}`);
+  console.log(`کل آرشیو: ${archive.length}`);
 
-  // ── تعیین پین‌ها ──────────────────────────────────────────
-  // شرط: با PIN_PREFIX شروع شود + حداکثر PIN_MAX_DAYS روز قبل + دستی
-  const pinnedSet = new Set(pinnedLinks);
+  const pinnedSet   = new Set(pinnedLinks);
   const pinnedPosts = archive
     .filter(p =>
       (isImportant(p.text) && isStillPinnable(p.isoDate)) ||
       pinnedSet.has(p.postLink)
     )
-    .slice(0, PIN_MAX_COUNT); // فقط آخرین PIN_MAX_COUNT تا
+    .slice(0, PIN_MAX_COUNT);
 
   const pinnedPostIds = new Set(pinnedPosts.map(p => p.postId));
   const regularPosts  = archive.filter(p => !pinnedPostIds.has(p.postId));
-
-  const totalPages = Math.max(1, Math.ceil(regularPosts.length / postsPerPage));
+  const totalPages    = Math.max(1, Math.ceil(regularPosts.length / postsPerPage));
 
   const dateFormatter = new Intl.DateTimeFormat('fa-IR', {
     year: 'numeric', month: 'long', day: 'numeric',
@@ -230,8 +237,9 @@ async function main() {
   const baseTemplate    = fs.readFileSync(pageFile, 'utf8');
 
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+    const fromRoot   = pageNum === 1;
     const slice      = regularPosts.slice((pageNum - 1) * postsPerPage, pageNum * postsPerPage);
-    const pagination = buildPagination(pageNum, totalPages);
+    const pagination = buildPagination(pageNum, totalPages, fromRoot);
 
     let postsHtml = '';
 
@@ -287,17 +295,16 @@ async function main() {
     pageHtml = replaceBetween(pageHtml, '<!-- START_SCHEMA -->',       '<!-- END_SCHEMA -->',
       `\n    <script type="application/ld+json">\n${schemaJson}\n    </script>\n    `);
 
-    const canonical = pageNum === 1
-      ? 'announcements.html'
-      : `announcements-pages/page-${pageNum}.html`;
+    // canonical و prev/next
+    const canonical = fromRoot ? 'announcements.html' : `announcements-pages/page-${pageNum}.html`;
     const prevHref  = pageNum === 2 ? '../announcements.html' : `page-${pageNum - 1}.html`;
-    const nextHref  = `page-${pageNum + 1}.html`;
+    const nextHref  = fromRoot ? `announcements-pages/page-${pageNum + 1}.html` : `page-${pageNum + 1}.html`;
     const prevLink  = pageNum > 1         ? `<link rel="prev" href="${prevHref}">` : '';
     const nextLink  = pageNum < totalPages ? `<link rel="next" href="${nextHref}">` : '';
     pageHtml = pageHtml.replace('</head>',
       `\n    <link rel="canonical" href="${canonical}">\n    ${prevLink}\n    ${nextLink}\n</head>`);
 
-    const outFile = pageNum === 1
+    const outFile = fromRoot
       ? path.join(__dirname, '..', 'announcements.html')
       : path.join(pagesDir, `page-${pageNum}.html`);
 
