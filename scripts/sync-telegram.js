@@ -2,15 +2,16 @@ const fs = require('fs');
 const path = require('path');
 
 // ─── تنظیمات ───────────────────────────────────────────────
-const channelId      = 'smartcafi_news';
-const postsPerPage   = 10;
-const archiveFile    = path.join(__dirname, '..', 'posts.json');
-const pageFile       = path.join(__dirname, '..', 'announcements.html');
-const configFile     = path.join(__dirname, '..', 'pinned-config.json');
-const pagesDir       = path.join(__dirname, '..', 'announcements-pages');
+const channelId    = 'smartcafi_news';
+const postsPerPage = 10;
+const archiveFile  = path.join(__dirname, '..', 'posts.json');
+const pageFile     = path.join(__dirname, '..', 'announcements.html');
+const configFile   = path.join(__dirname, '..', 'pinned-config.json');
+const pagesDir     = path.join(__dirname, '..', 'announcements-pages');
 
-// پست‌هایی که با این عبارت شروع شوند پین می‌شوند
-const PIN_PREFIX = 'اطلاعیه مهم';
+const PIN_PREFIX      = 'اطلاعیه مهم';
+const PIN_MAX_COUNT   = 3;   // حداکثر تعداد پین‌های نمایشی
+const PIN_MAX_DAYS    = 5;   // پس از این روزها از بخش مهم حذف می‌شود
 
 // ─── ابزارها ───────────────────────────────────────────────
 function replaceBetween(source, startMarker, endMarker, replacement) {
@@ -40,7 +41,12 @@ function isImportant(text) {
   return text.trimStart().startsWith(PIN_PREFIX);
 }
 
-// ─── دریافت پست‌ها از تلگرام ──────────────────────────────
+function isStillPinnable(isoDate) {
+  const ageMs = Date.now() - new Date(isoDate).getTime();
+  return ageMs < PIN_MAX_DAYS * 24 * 60 * 60 * 1000;
+}
+
+// ─── دریافت یک صفحه از تلگرام ─────────────────────────────
 async function fetchPosts(beforeId = null) {
   const url = beforeId
     ? `https://t.me/s/${channelId}?before=${beforeId}`
@@ -78,26 +84,23 @@ async function fetchPosts(beforeId = null) {
   return posts;
 }
 
-async function fetchAllNew(knownIds) {
-  let allNew   = [];
-  let beforeId = null;
-  let page     = 0;
+// دریافت همه پست‌های فعلی کانال (برای تشخیص حذف‌شده‌ها)
+async function fetchAllLivePosts() {
+  const allLive = new Map(); // postId → post
+  let beforeId  = null;
+  let page      = 0;
 
   while (true) {
-    console.log(`صفحه ${++page} از تلگرام...`);
+    console.log(`دریافت صفحه ${++page} از تلگرام...`);
     const batch = await fetchPosts(beforeId);
     if (!batch.length) break;
 
-    const newOnes = batch.filter(p => !knownIds.has(p.postId));
-    allNew = allNew.concat(newOnes);
-
-    if (newOnes.length < batch.length) break;
-
+    batch.forEach(p => allLive.set(p.postId, p));
     beforeId = batch[0].numId;
     await new Promise(r => setTimeout(r, 700));
   }
 
-  return allNew;
+  return allLive;
 }
 
 // ─── HTML پست معمولی ──────────────────────────────────────
@@ -123,27 +126,16 @@ function pinnedPostToHtml(post, dateFormatter) {
   const displayDate = dateFormatter.format(new Date(post.isoDate));
 
   return `<article style="
-              display:block;
-              position:relative;
+              display:block; position:relative;
               background: linear-gradient(135deg, #fff8f0 0%, #fff3e8 100%);
-              border: 1.5px solid #f0b070;
-              border-right: 5px solid #e07000;
-              border-radius: 10px;
-              margin-bottom: 14px;
-              padding: 18px 18px 14px;
-              box-shadow: 0 2px 10px rgba(224,112,0,0.08);
-              overflow: hidden;
+              border: 1.5px solid #f0b070; border-right: 5px solid #e07000;
+              border-radius: 10px; margin-bottom: 14px; padding: 18px 18px 14px;
+              box-shadow: 0 2px 10px rgba(224,112,0,0.08); overflow: hidden;
             " itemscope itemtype="https://schema.org/SocialMediaPosting">
-            <div style="
-              position:absolute; top:0; left:0;
-              background: linear-gradient(135deg, #e07000, #c45c00);
-              color:#fff;
-              font-size:0.65rem;
-              font-weight:bold;
-              padding: 4px 12px 4px 10px;
-              border-radius: 0 0 10px 0;
-              letter-spacing:0.04em;
-            ">📌 مهم</div>
+            <div style="position:absolute; top:0; left:0;
+              background: linear-gradient(135deg, #e07000, #c45c00); color:#fff;
+              font-size:0.65rem; font-weight:bold; padding: 4px 12px 4px 10px;
+              border-radius: 0 0 10px 0; letter-spacing:0.04em;">📌 مهم</div>
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; flex-wrap:wrap; margin-top:16px;">
                 <h3 itemprop="headline" style="margin:0; font-size:1rem; color:#7a3800; font-weight:700;">${headline}</h3>
                 <time itemprop="datePublished" datetime="${post.isoDate}" style="font-size:0.75rem; color:#b07030; white-space:nowrap;">${displayDate}</time>
@@ -161,7 +153,6 @@ function pinnedPostToHtml(post, dateFormatter) {
 function buildPagination(currentPage, totalPages) {
   if (totalPages <= 1) return '';
 
-  // لینک صفحات: صفحه ۱ همان announcements.html است، بقیه در پوشه announcements-pages
   function pageHref(i) {
     return i === 1 ? '../announcements.html' : `page-${i}.html`;
   }
@@ -180,31 +171,51 @@ function buildPagination(currentPage, totalPages) {
 // ─── اصلی ─────────────────────────────────────────────────
 async function main() {
 
-  // ساخت پوشه صفحات اگر وجود ندارد
   if (!fs.existsSync(pagesDir)) fs.mkdirSync(pagesDir, { recursive: true });
 
+  // بارگذاری آرشیو قبلی
   let archive = [];
   if (fs.existsSync(archiveFile)) {
     archive = JSON.parse(fs.readFileSync(archiveFile, 'utf8'));
   }
-  const knownIds = new Set(archive.map(p => p.postId));
-  console.log(`پست‌های موجود در آرشیو: ${archive.length}`);
+  console.log(`آرشیو قبلی: ${archive.length} پست`);
 
+  // بارگذاری config پین دستی
   let pinnedLinks = [];
   if (fs.existsSync(configFile)) {
     pinnedLinks = JSON.parse(fs.readFileSync(configFile, 'utf8')).pinned || [];
   }
 
-  const newPosts = await fetchAllNew(knownIds);
+  // دریافت همه پست‌های زنده از تلگرام
+  const livePosts = await fetchAllLivePosts();
+  console.log(`پست‌های زنده در کانال: ${livePosts.size}`);
+
+  // ── حذف پست‌هایی که از کانال پاک شده‌اند ────────────────
+  const beforeCount = archive.length;
+  archive = archive.filter(p => livePosts.has(p.postId));
+  console.log(`حذف‌شده از کانال: ${beforeCount - archive.length} پست`);
+
+  // ── افزودن پست‌های جدید ──────────────────────────────────
+  const archiveIds = new Set(archive.map(p => p.postId));
+  const newPosts   = [...livePosts.values()].filter(p => !archiveIds.has(p.postId));
   console.log(`پست‌های جدید: ${newPosts.length}`);
 
   archive = [...newPosts, ...archive];
   archive.sort((a, b) => new Date(b.isoDate) - new Date(a.isoDate));
-  fs.writeFileSync(archiveFile, JSON.stringify(archive, null, 2));
-  console.log(`کل آرشیو: ${archive.length}`);
 
-  const pinnedSet     = new Set(pinnedLinks);
-  const pinnedPosts   = archive.filter(p => pinnedSet.has(p.postLink) || isImportant(p.text)).slice(0, 10);
+  fs.writeFileSync(archiveFile, JSON.stringify(archive, null, 2));
+  console.log(`آرشیو ذخیره شد. کل: ${archive.length}`);
+
+  // ── تعیین پین‌ها ──────────────────────────────────────────
+  // شرط: با PIN_PREFIX شروع شود + حداکثر PIN_MAX_DAYS روز قبل + دستی
+  const pinnedSet = new Set(pinnedLinks);
+  const pinnedPosts = archive
+    .filter(p =>
+      (isImportant(p.text) && isStillPinnable(p.isoDate)) ||
+      pinnedSet.has(p.postLink)
+    )
+    .slice(0, PIN_MAX_COUNT); // فقط آخرین PIN_MAX_COUNT تا
+
   const pinnedPostIds = new Set(pinnedPosts.map(p => p.postId));
   const regularPosts  = archive.filter(p => !pinnedPostIds.has(p.postId));
 
@@ -271,24 +282,21 @@ async function main() {
       : `اطلاعیه‌ها - صفحه ${pageNum} - کافی‌نت بیات`;
 
     let pageHtml = baseTemplate.replace(/<title>[^<]*<\/title>/, `<title>${pageTitle}</title>`);
-
     pageHtml = replaceBetween(pageHtml, '<!-- START_POSTS -->',        '<!-- END_POSTS -->',        '\n        ' + postsHtml);
     pageHtml = replaceBetween(pageHtml, '<!-- LAST_UPDATED_START -->', '<!-- LAST_UPDATED_END -->', lastUpdatedText);
     pageHtml = replaceBetween(pageHtml, '<!-- START_SCHEMA -->',       '<!-- END_SCHEMA -->',
       `\n    <script type="application/ld+json">\n${schemaJson}\n    </script>\n    `);
 
-    // canonical و prev/next — مسیرها نسبت به موقعیت فایل
     const canonical = pageNum === 1
       ? 'announcements.html'
       : `announcements-pages/page-${pageNum}.html`;
     const prevHref  = pageNum === 2 ? '../announcements.html' : `page-${pageNum - 1}.html`;
     const nextHref  = `page-${pageNum + 1}.html`;
-    const prevLink  = pageNum > 1        ? `<link rel="prev" href="${prevHref}">` : '';
+    const prevLink  = pageNum > 1         ? `<link rel="prev" href="${prevHref}">` : '';
     const nextLink  = pageNum < totalPages ? `<link rel="next" href="${nextHref}">` : '';
     pageHtml = pageHtml.replace('</head>',
       `\n    <link rel="canonical" href="${canonical}">\n    ${prevLink}\n    ${nextLink}\n</head>`);
 
-    // صفحه ۱ → announcements.html  |  بقیه → announcements-pages/page-N.html
     const outFile = pageNum === 1
       ? path.join(__dirname, '..', 'announcements.html')
       : path.join(pagesDir, `page-${pageNum}.html`);
