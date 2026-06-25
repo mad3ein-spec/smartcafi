@@ -1,0 +1,468 @@
+/* =====================================================
+   کافی‌نت بیات — سیستم طراحی مینیمال «مُهر و سند»
+   ===================================================== */
+
+/* تعریف فونت‌های محلی ایران سنس ایکس با آدرس‌دهی مستقیم */
+@font-face {
+    font-family: 'IRANSansX';
+    src: url('fonts/IRANSansX-Regular.woff2') format('woff2'),
+         url('fonts/IRANSansX-Regular.woff') format('woff');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'IRANSansX';
+    src: url('fonts/IRANSansX-Bold.woff2') format('woff2'),
+         url('fonts/IRANSansX-Bold.woff') format('woff');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root{
+  --paper:        #F2F1EC;
+  --surface:      #FFFFFF;
+  --ink:          #20231F;
+  --ink-soft:     #5C6058;
+  --ink-faint:    #8B8E85;
+  --line:         #DEDAD0;
+  --line-soft:    #EAE7DE;
+  --accent:       #33417A;
+  --accent-dark:  #232C57;
+  --accent-soft:  #E8EAF3;
+  --radius-sm:    8px;
+  --radius-md:    14px;
+  --shadow-card:  0 1px 2px rgba(32,35,31,0.04), 0 8px 24px rgba(32,35,31,0.05);
+  --container:    900px;
+}
+
+*{ box-sizing: border-box; }
+html{ font-size: 100%; }
+body{
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'IRANSansX', Tahoma, Arial, sans-serif;
+  line-height: 1.75;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- ساختار پایه ---------- */
+.page-wrap{
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ---------- هدر ---------- */
+.site-header{
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: 20px 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.site-header .page-wrap{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.brand{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--ink);
+}
+.brand-name{
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.stamp-mark{
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.site-nav{
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.nav-link{
+  text-decoration: none;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+.nav-link:hover{ color: var(--ink); }
+.nav-link.active{
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ---------- بخش معرفی اول سایت (Hero) ---------- */
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 60px 0;
+}
+.hero-text {
+  flex: 1;
+}
+.hero-text .eyebrow {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 4px 12px;
+  border-radius: 100px;
+  margin-bottom: 16px;
+}
+.hero-text h1 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.4;
+  margin: 0 0 16px;
+  color: var(--ink);
+}
+.hero-text .lead {
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+  margin: 0 0 32px;
+  max-width: 540px;
+}
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--surface);
+}
+.btn-primary:hover {
+  background: var(--accent-dark);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+}
+.btn-ghost:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+.hero-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stamp-big {
+  width: 160px;
+  height: 160px;
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    flex-direction: column-reverse;
+    text-align: center;
+    padding: 40px 0;
+  }
+  .hero-text .lead {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .hero-actions {
+    justify-content: center;
+  }
+}
+
+/* ---------- ردیف آمار ---------- */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.stat-chip {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  text-align: center;
+  box-shadow: var(--shadow-card);
+}
+.stat-chip .num {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.stat-chip .label {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+@media (max-width: 550px) {
+  .stat-row { grid-template-columns: 1fr; gap: 12px; }
+}
+
+/* ---------- معرفی صفحه خدمات ---------- */
+.page-intro {
+  text-align: center;
+  padding: 48px 0 32px;
+}
+.page-intro h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+.page-intro .slogan {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0 0 8px;
+}
+.page-intro .subtitle {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+/* ---------- فیلتر و جستجو ---------- */
+.filter-box {
+  position: relative;
+  max-width: 500px;
+  margin: 0 auto 32px;
+}
+.filter-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 40px 12px 16px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--ink);
+  outline: none;
+  transition: all 0.15s ease;
+}
+.filter-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.filter-icon {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+.filter-empty {
+  display: none;
+  text-align: center;
+  padding: 48px 0;
+  color: var(--ink-faint);
+  font-size: 0.9rem;
+}
+
+/* ---------- لیست خدمات (آکاردئون مدرن) ---------- */
+.services-list {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 40px;
+}
+details {
+  border-bottom: 1px solid var(--line-soft);
+}
+details:last-child {
+  border-bottom: none;
+}
+summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  font-size: 0.96rem;
+  color: var(--ink);
+}
+summary:hover {
+  background: #FAFAF9;
+}
+summary::-webkit-details-marker { display: none; }
+summary .tag {
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  font-weight: 400;
+  margin-right: 8px;
+}
+summary .chevron {
+  width: 18px;
+  height: 18px;
+  color: var(--ink-faint);
+  transition: transform 0.2s ease;
+}
+details[open] .chevron {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+.service-content {
+  padding: 4px 24px 24px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+.service-content p { margin: 0 0 8px; font-weight: 700; color: var(--ink); }
+.service-content ul { margin: 0 0 16px; padding-right: 20px; }
+.service-content li { margin-bottom: 6px; }
+.btn-send {
+  display: inline-flex;
+  background: var(--accent);
+  color: var(--surface);
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: background 0.15s ease;
+}
+.btn-send:hover { background: var(--accent-dark); }
+
+/* ---------- کارت اطلاعات هوم‌پیج ---------- */
+.info-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  display: flex;
+  gap: 16px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 40px;
+}
+.info-card-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.info-card h3 { margin: 0 0 6px; font-size: 1rem; font-weight: 700; }
+.info-card p { margin: 0; color: var(--ink-soft); font-size: 0.88rem; }
+.info-card .hours { font-weight: 700; color: var(--ink); }
+
+/* ---------- صفحه تماس و ارتباط ---------- */
+.contact-lead {
+  text-align: center;
+  font-size: 1rem;
+  color: var(--ink-soft);
+  max-width: 600px;
+  margin: 0 auto 32px;
+}
+.section-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+  margin: 32px 0 16px;
+  letter-spacing: 0.05em;
+}
+.messenger-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+@media (max-width: 600px) {
+  .messenger-list { grid-template-columns: 1fr; }
+}
+.messenger-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.92rem;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.messenger-item:hover {
+  transform: translateY(-2px);
+  border-color: var(--tab-color);
+}
+.messenger-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--tab-color);
+}
+.phone-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 32px 24px;
+  text-align: center;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 40px;
+}
+.phone-card-icon { width: 32px; height: 32px; color: var(--accent); margin-bottom: 12px; }
+.phone-card h3 { margin: 0 0 6px; font-size: 1rem; font-weight: 700; }
+.phone-card p { margin: 0 0 16px; color: var(--ink-soft); font-size: 0.88rem; }
+.phone-number {
+  display: inline-block;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  direction: ltr;
+}
+.phone-hint { margin: 12px 0 0; font-size: 0.78rem; color: var(--ink-faint); }
+
+/* ---------- فوتر ---------- */
+.site-footer {
+  border-top: 1px solid var(--line);
+  padding: 24px 0;
+}
+.site-footer .page-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+}
+.site-footer .stamp-mark { width: 16px; height: 16px; }
