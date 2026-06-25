@@ -25,7 +25,8 @@ jobs:
           fetch(\`https://t.me/s/\${channelId}\`)
             .then(res => res.text())
             .then(html => {
-              const regex = /<div class=\"tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>/g;
+              // ساختار جدید تلگرام برای شناسایی متن پیام‌ها
+              const regex = /<div class=\"[^\"]*tgme_widget_message_text[^\"]*\"[^>]*>([\s\S]*?)<\/div>/g;
               let matches;
               let postsHtml = '';
               let allMatches = [];
@@ -34,10 +35,12 @@ jobs:
                 allMatches.push(matches[1].trim());
               }
               
+              // دریافت ۵ پست آخر و معکوس کردن ترتیب برای نمایش جدیدترین‌ها در بالا
               const latestPosts = allMatches.slice(-5).reverse();
               
               latestPosts.forEach(text => {
                 if(text) {
+                  // تمیزکاری تگ‌های اضافه html
                   let cleanText = text.replace(/<br\s*\/?>/mg, '\n').replace(/<[^>]*>/g, '');
                   postsHtml += \`<div class=\"info-card\" style=\"display: block; border-right: 4px solid #33417A; margin-bottom: 16px;\"><p style=\"line-height: 1.8; white-space: pre-line;\">\${cleanText}</p></div>\`;
                 }
@@ -49,7 +52,7 @@ jobs:
               
               let pageHtml = fs.readFileSync('announcements.html', 'utf8');
               const startMarker = '<div style=\"display: flex; flex-direction: column; gap: 16px; margin-bottom: 30px;\" id=\"posts-container\">';
-              const endMarker = '</div>\n\n        ';
+              const endMarker = '</div>\n\n        <!-- دکمه ورود مستقیم -->';
               
               const startIndex = pageHtml.indexOf(startMarker) + startMarker.length;
               const endIndex = pageHtml.indexOf(endMarker);
@@ -58,6 +61,8 @@ jobs:
                 pageHtml = pageHtml.substring(0, startIndex) + '\n' + postsHtml + '\n        ' + pageHtml.substring(endIndex);
                 fs.writeFileSync('announcements.html', pageHtml);
                 console.log('سایت با موفقیت بروزرسانی شد.');
+              } else {
+                console.log('مارکرهای جابجایی در فایل announcements.html یافت نشدند.');
               }
             });
           "
@@ -67,5 +72,5 @@ jobs:
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
           git add announcements.html
-          git diff --quiet && git diff --staged --quiet || git commit -m "بروزرسانی خودکار اطلاعیه‌ها از تلگرام"
+          git diff --quiet && git diff --staged --quiet || git commit -m "بروزرسانی خودکار اطلاعیه‌ها از تلگرام جدید"
           git push
