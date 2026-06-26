@@ -1,5 +1,6 @@
 /* =====================================================
-   کافی‌نت بیات — سیستم طراحی مینیمال «مُهر و سند»
+   کافی‌نت بیات — سیستم طراحی «مُهر و سند»
+   نسخه‌ی بازطراحی‌شده: ریسپانسیو کامل + تایپوگرافی یکدست
    ===================================================== */
 
 /* تعریف فونت‌های محلی ایران سنس ایکس با آدرس‌دهی مستقیم */
@@ -29,13 +30,25 @@
   --ink-faint:    #8B8E85;
   --line:         #DEDAD0;
   --line-soft:    #EAE7DE;
+
+  /* آبی سند رسمی (رنگ اصلی برند) */
   --accent:       #33417A;
   --accent-dark:  #232C57;
   --accent-soft:  #E8EAF3;
+
+  /* تیل وای‌فای از لوگو — لهجه‌ی «هوشمند/اتصال» در کنار آبی «رسمی/سند» */
+  --teal:         #4E8FA8;
+  --teal-soft:    #E5EFF2;
+
   --radius-sm:    8px;
   --radius-md:    14px;
   --shadow-card:  0 1px 2px rgba(32,35,31,0.04), 0 8px 24px rgba(32,35,31,0.05);
   --container:    900px;
+
+  /* مقیاس تایپوگرافی سیال — با clamp() روی همه‌ی سایزها از موبایل تا دسکتاپ جواب می‌ده */
+  --fs-h1:       clamp(1.6rem, 1.15rem + 2.2vw, 2.4rem);
+  --fs-h1-page:  clamp(1.4rem, 1.05rem + 1.6vw, 2rem);
+  --fs-lead:     clamp(0.92rem, 0.85rem + 0.35vw, 1.05rem);
 }
 
 *{ box-sizing: border-box; }
@@ -48,6 +61,21 @@ body{
   line-height: 1.75;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden; /* جلوگیری از اسکرول/زوم افقی ناخواسته در موبایل */
+}
+
+img{ max-width: 100%; display: block; }
+
+a{ -webkit-tap-highlight-color: transparent; }
+
+:focus-visible{
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{ transition: none !important; animation: none !important; }
 }
 
 /* ---------- ساختار پایه ---------- */
@@ -55,13 +83,14 @@ body{
   max-width: var(--container);
   margin: 0 auto;
   padding: 0 24px;
+  width: 100%;
 }
 
 /* ---------- هدر ---------- */
 .site-header{
   background: var(--surface);
   border-bottom: 1px solid var(--line);
-  padding: 20px 0;
+  padding: 14px 0;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -71,6 +100,7 @@ body{
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 .brand{
   display: flex;
@@ -78,28 +108,43 @@ body{
   gap: 10px;
   text-decoration: none;
   color: var(--ink);
+  flex-shrink: 0;
 }
+
+/* لوگوی تصویری برند (جایگزین مُهر SVG قبلی) */
+.brand-logo{
+  height: 38px;
+  width: auto;
+  display: block;
+}
+
 .brand-name{
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
+
+/* مُهر SVG قدیمی همچنان برای فوتر/جای دیگر در دسترس می‌ماند */
 .stamp-mark{
   width: 24px;
   height: 24px;
   color: var(--accent);
   flex-shrink: 0;
 }
+
 .site-nav{
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .nav-link{
   text-decoration: none;
   color: var(--ink-soft);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 500;
+  white-space: nowrap;
   transition: color 0.15s ease;
 }
 .nav-link:hover{ color: var(--ink); }
@@ -108,20 +153,38 @@ body{
   font-weight: 700;
 }
 
+/* موبایل: ناوبری وسط‌چین و فشرده‌تر می‌شود تا هرگز باعث اسکرول افقی نشود */
+@media (max-width: 640px){
+  .site-header{ padding: 12px 0; }
+  .site-header .page-wrap{
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .site-nav{
+    justify-content: center;
+    gap: 10px 16px;
+    width: 100%;
+  }
+  .nav-link{ font-size: 0.82rem; }
+  .brand-logo{ height: 32px; }
+}
+
 /* ---------- بخش معرفی اول سایت (Hero) ---------- */
 .hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 40px;
-  padding: 60px 0;
+  padding: clamp(32px, 6vw, 60px) 0;
 }
 .hero-text {
   flex: 1;
+  min-width: 0;
 }
 .hero-text .eyebrow {
   display: inline-block;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--accent);
   background: var(--accent-soft);
@@ -130,14 +193,14 @@ body{
   margin-bottom: 16px;
 }
 .hero-text h1 {
-  font-size: 2.4rem;
+  font-size: var(--fs-h1);
   font-weight: 800;
   line-height: 1.4;
   margin: 0 0 16px;
   color: var(--ink);
 }
 .hero-text .lead {
-  font-size: 1.05rem;
+  font-size: var(--fs-lead);
   color: var(--ink-soft);
   margin: 0 0 32px;
   max-width: 540px;
@@ -154,7 +217,7 @@ body{
   padding: 12px 24px;
   border-radius: var(--radius-sm);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   text-decoration: none;
   transition: all 0.2s ease;
 }
@@ -178,10 +241,11 @@ body{
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 .stamp-big {
-  width: 160px;
-  height: 160px;
+  width: clamp(110px, 22vw, 160px);
+  height: clamp(110px, 22vw, 160px);
   color: var(--accent);
   opacity: 0.85;
 }
@@ -190,7 +254,6 @@ body{
   .hero {
     flex-direction: column-reverse;
     text-align: center;
-    padding: 40px 0;
   }
   .hero-text .lead {
     margin-left: auto;
@@ -199,66 +262,71 @@ body{
   .hero-actions {
     justify-content: center;
   }
+  .btn{ font-size: 0.85rem; padding: 11px 20px; }
 }
 
 /* ---------- ردیف آمار ---------- */
 .stat-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 14px;
   margin-bottom: 32px;
 }
 .stat-chip {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 20px;
+  padding: 18px 12px;
   text-align: center;
   box-shadow: var(--shadow-card);
+  min-width: 0;
 }
 .stat-chip .num {
   display: block;
-  font-size: 1.5rem;
+  font-size: clamp(1.05rem, 0.9rem + 0.6vw, 1.5rem);
   font-weight: 800;
   color: var(--accent);
   margin-bottom: 4px;
+  white-space: nowrap;
 }
 .stat-chip .label {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   color: var(--ink-soft);
   font-weight: 600;
 }
 @media (max-width: 550px) {
-  .stat-row { grid-template-columns: 1fr; gap: 12px; }
+  .stat-row { grid-template-columns: 1fr; gap: 10px; }
 }
 
-/* ---------- معرفی صفحه خدمات ---------- */
+/* ---------- معرفی صفحه خدمات / اطلاعیه‌ها ---------- */
 .page-intro {
   text-align: center;
-  padding: 48px 0 32px;
+  padding: clamp(28px, 6vw, 48px) 0 28px;
 }
 .page-intro h1 {
-  font-size: 2rem;
+  font-size: var(--fs-h1-page);
   font-weight: 800;
   margin: 0 0 8px;
+  line-height: 1.4;
 }
 .page-intro .slogan {
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: var(--accent);
   margin: 0 0 8px;
 }
 .page-intro .subtitle {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--ink-soft);
   margin: 0;
+  padding: 0 8px;
 }
 
 /* ---------- فیلتر و جستجو ---------- */
 .filter-box {
   position: relative;
   max-width: 500px;
-  margin: 0 auto 32px;
+  margin: 0 auto 28px;
 }
 .filter-input {
   width: 100%;
@@ -313,19 +381,20 @@ summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 24px;
+  padding: 16px 18px;
   cursor: pointer;
   user-select: none;
   font-weight: 600;
-  font-size: 0.96rem;
+  font-size: 0.92rem;
   color: var(--ink);
+  gap: 10px;
 }
 summary:hover {
   background: #FAFAF9;
 }
 summary::-webkit-details-marker { display: none; }
 summary .tag {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--ink-faint);
   font-weight: 400;
   margin-right: 8px;
@@ -334,6 +403,7 @@ summary .chevron {
   width: 18px;
   height: 18px;
   color: var(--ink-faint);
+  flex-shrink: 0;
   transition: transform 0.2s ease;
 }
 details[open] .chevron {
@@ -341,13 +411,19 @@ details[open] .chevron {
   color: var(--accent);
 }
 .service-content {
-  padding: 4px 24px 24px;
-  font-size: 0.9rem;
+  padding: 4px 18px 22px;
+  font-size: 0.88rem;
   color: var(--ink-soft);
 }
 .service-content p { margin: 0 0 8px; font-weight: 700; color: var(--ink); }
 .service-content ul { margin: 0 0 16px; padding-right: 20px; }
 .service-content li { margin-bottom: 6px; }
+
+@media (max-width: 600px){
+  summary{ padding: 14px 16px; font-size: 0.88rem; }
+  .service-content{ padding: 4px 16px 20px; }
+}
+
 .btn-send {
   display: inline-flex;
   background: var(--accent);
@@ -366,9 +442,9 @@ details[open] .chevron {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 24px;
+  padding: 20px;
   display: flex;
-  gap: 16px;
+  gap: 14px;
   box-shadow: var(--shadow-card);
   margin-bottom: 40px;
 }
@@ -382,26 +458,31 @@ details[open] .chevron {
 .info-card p { margin: 0; color: var(--ink-soft); font-size: 0.88rem; }
 .info-card .hours { font-weight: 700; color: var(--ink); }
 
+@media (max-width: 480px){
+  .info-card{ flex-direction: column; padding: 18px; }
+}
+
 /* ---------- صفحه تماس و ارتباط ---------- */
 .contact-lead {
   text-align: center;
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: var(--ink-soft);
   max-width: 600px;
-  margin: 0 auto 32px;
+  margin: 0 auto 28px;
+  padding: 0 8px;
 }
 .section-label {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--ink-faint);
-  margin: 32px 0 16px;
+  margin: 28px 0 14px;
   letter-spacing: 0.05em;
 }
 .messenger-list {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 32px;
+  gap: 14px;
+  margin-bottom: 28px;
 }
 @media (max-width: 600px) {
   .messenger-list { grid-template-columns: 1fr; }
@@ -417,7 +498,7 @@ details[open] .chevron {
   text-decoration: none;
   color: var(--ink);
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   box-shadow: var(--shadow-card);
   transition: transform 0.15s ease, border-color 0.15s ease;
 }
@@ -434,7 +515,7 @@ details[open] .chevron {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 32px 24px;
+  padding: clamp(24px, 5vw, 32px) 20px;
   text-align: center;
   box-shadow: var(--shadow-card);
   margin-bottom: 40px;
@@ -444,18 +525,73 @@ details[open] .chevron {
 .phone-card p { margin: 0 0 16px; color: var(--ink-soft); font-size: 0.88rem; }
 .phone-number {
   display: inline-block;
-  font-size: 1.6rem;
+  font-size: clamp(1.25rem, 1rem + 1.2vw, 1.6rem);
   font-weight: 700;
   color: var(--accent);
   text-decoration: none;
   direction: ltr;
 }
-.phone-hint { margin: 12px 0 0; font-size: 0.78rem; color: var(--ink-faint); }
+.phone-hint { margin: 12px 0 0; font-size: 0.76rem; color: var(--ink-faint); }
+
+/* =====================================================
+   اطلاعیه‌های تلگرام — تایپوگرافی یکدست (رفع ناهماهنگی فونت تیترها)
+   این قوانین به‌صورت هدفمند با !important نوشته شده‌اند تا حتی روی
+   استایل‌های inline که اسکریپت سینک تولید می‌کند هم اعمال شوند،
+   بدون نیاز به دستکاری اسکریپت.
+   ===================================================== */
+#posts-container .info-card{
+  padding: 0;
+  display: block;
+  border-right: 4px solid var(--accent) !important;
+  box-shadow: var(--shadow-card);
+}
+
+#posts-container h3{
+  font-family: 'IRANSansX', Tahoma, Arial, sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 0.98rem !important;
+  line-height: 1.6 !important;
+  color: var(--ink) !important;
+  margin: 0 !important;
+}
+
+#posts-container p{
+  font-family: 'IRANSansX', Tahoma, Arial, sans-serif !important;
+  font-size: 0.9rem !important;
+  line-height: 1.85 !important;
+  color: var(--ink-soft) !important;
+}
+
+#posts-container time{
+  font-family: 'IRANSansX', Tahoma, Arial, sans-serif !important;
+  font-size: 0.74rem !important;
+  color: var(--ink-faint) !important;
+  white-space: nowrap;
+}
+
+#posts-container button{
+  font-family: 'IRANSansX', Tahoma, Arial, sans-serif !important;
+  width: 100%;
+}
+
+#posts-container a{
+  font-family: 'IRANSansX', Tahoma, Arial, sans-serif !important;
+  font-size: 0.78rem !important;
+  color: var(--teal) !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+}
+#posts-container a:hover{ text-decoration: underline !important; }
+
+@media (max-width: 480px){
+  #posts-container h3{ font-size: 0.9rem !important; }
+  #posts-container button{ padding: 12px 14px !important; }
+}
 
 /* ---------- فوتر ---------- */
 .site-footer {
   border-top: 1px solid var(--line);
-  padding: 24px 0;
+  padding: 22px 0;
 }
 .site-footer .page-wrap {
   display: flex;
@@ -463,6 +599,8 @@ details[open] .chevron {
   justify-content: center;
   gap: 8px;
   color: var(--ink-faint);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  text-align: center;
 }
 .site-footer .stamp-mark { width: 16px; height: 16px; }
+.site-footer .brand-logo{ height: 20px; }
