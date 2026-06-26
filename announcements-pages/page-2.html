@@ -55,6 +55,10 @@
     
     <link rel="next" href="/announcements-pages/page-2.html">
 
+    <link rel="canonical" href="/announcements.html">
+    
+    <link rel="next" href="/announcements-pages/page-2.html">
+
     <link rel="canonical" href="/announcements-pages/page-2.html">
     <link rel="prev" href="/announcements.html">
     <link rel="next" href="/announcements-pages/page-3.html">
@@ -86,7 +90,7 @@
             <h1>آخرین اخبار و اطلاعیه‌های ثبت‌نام</h1>
             <p class="slogan"></p>
             <p class="subtitle">جدیدترین فراخوان‌های استخدامی، زمان‌بندی کنکور، ثبت‌نام وام‌ها و طرح‌های دولتی را در این صفحه دنبال کنید.</p>
-            <p style="font-size: 0.8rem; color: var(--ink-soft); margin-top: 8px;"><!-- LAST_UPDATED_START -->آخرین بروزرسانی: ۵ تیر ۱۴۰۵ ساعت ۰۷:۲۲<!-- LAST_UPDATED_END --></p>
+            <p style="font-size: 0.8rem; color: var(--ink-soft); margin-top: 8px;"><!-- LAST_UPDATED_START -->آخرین بروزرسانی: ۵ تیر ۱۴۰۵ ساعت ۰۸:۰۳<!-- LAST_UPDATED_END --></p>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 30px;" id="posts-container">
@@ -400,6 +404,16 @@
     </script>
     <!-- END_SCHEMA -->
 
+<script>
+function togglePost(uid) {
+  var body  = document.getElementById('body_'  + uid);
+  var arrow = document.getElementById('arrow_' + uid);
+  if (!body) return;
+  var open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.style.transform = open ? '' : 'rotate(180deg)';
+}
+</script>
 <script>
 function togglePost(uid) {
   var body  = document.getElementById('body_'  + uid);
