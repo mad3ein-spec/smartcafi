@@ -46,7 +46,6 @@ function isStillPinnable(isoDate) {
   return ageMs < PIN_MAX_DAYS * 24 * 60 * 60 * 1000;
 }
 
-// اگه متن با PIN_PREFIX شروع شه، اون خط رو حذف می‌کنه
 function stripPinPrefix(text) {
   const lines = text.split('\n');
   if (lines[0].trim().startsWith(PIN_PREFIX)) {
@@ -55,7 +54,19 @@ function stripPinPrefix(text) {
   return text;
 }
 
-// ─── دریافت یک صفحه از تلگرام ─────────────────────────────
+// وقتی فایل داخل پوشه است، همه لینک‌های relative را یه سطح بالا می‌بریم
+// href="style.css" → href="../style.css"
+// href="index.html" → href="../index.html"
+// به لینک‌های خارجی (http/https/#) و مسیرهایی که قبلاً ../ دارند کاری نداریم
+function fixRelativeLinks(html) {
+  return html
+    // href="..." 
+    .replace(/href="(?!https?:\/\/|#|\.\.\/|\/|mailto:|tel:)([^"]+)"/g, 'href="../$1"')
+    // src="..."
+    .replace(/src="(?!https?:\/\/|\/|\.\.\/|data:)([^"]+)"/g, 'src="../$1"');
+}
+
+// ─── دریافت پست‌ها از تلگرام ──────────────────────────────
 async function fetchPosts(beforeId = null) {
   const url = beforeId
     ? `https://t.me/s/${channelId}?before=${beforeId}`
@@ -129,7 +140,6 @@ function postToHtml(post, dateFormatter) {
 
 // ─── HTML پست پین‌شده ─────────────────────────────────────
 function pinnedPostToHtml(post, dateFormatter) {
-  // خط «اطلاعیه مهم» را از متن و تیتر حذف می‌کنیم
   const cleanedText = stripPinPrefix(post.text);
   const firstLine   = cleanedText.split('\n')[0].trim();
   const headline    = firstLine.length > 70 ? firstLine.slice(0, 70) + '…' : firstLine;
@@ -160,25 +170,18 @@ function pinnedPostToHtml(post, dateFormatter) {
 }
 
 // ─── ناوبری صفحات ─────────────────────────────────────────
-// pageNum: شماره صفحه فعلی | fromRoot: آیا فایل در root است؟
-function buildPagination(currentPage, totalPages, fromRoot) {
+// همه لینک‌ها از دید فایل داخل پوشه نوشته می‌شن (../announcements.html و page-N.html)
+// برای صفحه ۱ که در root است، fixRelativeLinks آن‌ها را درست می‌کند
+function buildPagination(currentPage, totalPages) {
   if (totalPages <= 1) return '';
-
-  function pageHref(i) {
-    if (i === 1) {
-      // صفحه اول همیشه announcements.html است
-      return fromRoot ? 'announcements.html' : '../announcements.html';
-    }
-    // صفحات بعدی در پوشه announcements-pages هستند
-    return fromRoot ? `announcements-pages/page-${i}.html` : `page-${i}.html`;
-  }
 
   let links = '';
   for (let i = 1; i <= totalPages; i++) {
+    const href   = i === 1 ? '../announcements.html' : `page-${i}.html`;
     const active = i === currentPage
       ? 'background:#33417A;color:#fff;'
       : 'background:#f0f2f8;color:#33417A;';
-    links += `<a href="${pageHref(i)}" style="${active} padding:6px 14px; border-radius:6px; text-decoration:none; font-size:0.9rem; margin:0 3px;">${i}</a>`;
+    links += `<a href="${href}" style="${active} padding:6px 14px; border-radius:6px; text-decoration:none; font-size:0.9rem; margin:0 3px;">${i}</a>`;
   }
 
   return `<div style="text-align:center; margin: 24px 0; direction:rtl;">${links}</div>`;
@@ -234,12 +237,15 @@ async function main() {
   });
 
   const lastUpdatedText = `آخرین بروزرسانی: ${dateFormatter.format(new Date())}`;
-  const baseTemplate    = fs.readFileSync(pageFile, 'utf8');
+  // baseTemplate همیشه از announcements.html اصلی خوانده می‌شود
+  const baseTemplate = fs.readFileSync(pageFile, 'utf8');
 
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-    const fromRoot   = pageNum === 1;
-    const slice      = regularPosts.slice((pageNum - 1) * postsPerPage, pageNum * postsPerPage);
-    const pagination = buildPagination(pageNum, totalPages, fromRoot);
+    const isRoot  = pageNum === 1;
+    const slice   = regularPosts.slice((pageNum - 1) * postsPerPage, pageNum * postsPerPage);
+
+    // pagination همیشه با مسیر نسبی از داخل پوشه نوشته می‌شه
+    const pagination = buildPagination(pageNum, totalPages);
 
     let postsHtml = '';
 
@@ -285,10 +291,11 @@ async function main() {
       itemListElement: schemaItems
     }, null, 2);
 
-    const pageTitle = pageNum === 1
+    const pageTitle = isRoot
       ? 'اطلاعیه‌های ثبت‌نام - کافی‌نت بیات'
       : `اطلاعیه‌ها - صفحه ${pageNum} - کافی‌نت بیات`;
 
+    // ابتدا HTML پایه را می‌سازیم (با مسیرهای root)
     let pageHtml = baseTemplate.replace(/<title>[^<]*<\/title>/, `<title>${pageTitle}</title>`);
     pageHtml = replaceBetween(pageHtml, '<!-- START_POSTS -->',        '<!-- END_POSTS -->',        '\n        ' + postsHtml);
     pageHtml = replaceBetween(pageHtml, '<!-- LAST_UPDATED_START -->', '<!-- LAST_UPDATED_END -->', lastUpdatedText);
@@ -296,15 +303,20 @@ async function main() {
       `\n    <script type="application/ld+json">\n${schemaJson}\n    </script>\n    `);
 
     // canonical و prev/next
-    const canonical = fromRoot ? 'announcements.html' : `announcements-pages/page-${pageNum}.html`;
+    const canonical = isRoot ? 'announcements.html' : `announcements-pages/page-${pageNum}.html`;
     const prevHref  = pageNum === 2 ? '../announcements.html' : `page-${pageNum - 1}.html`;
-    const nextHref  = fromRoot ? `announcements-pages/page-${pageNum + 1}.html` : `page-${pageNum + 1}.html`;
+    const nextHref  = isRoot ? `announcements-pages/page-${pageNum + 1}.html` : `page-${pageNum + 1}.html`;
     const prevLink  = pageNum > 1         ? `<link rel="prev" href="${prevHref}">` : '';
     const nextLink  = pageNum < totalPages ? `<link rel="next" href="${nextHref}">` : '';
     pageHtml = pageHtml.replace('</head>',
       `\n    <link rel="canonical" href="${canonical}">\n    ${prevLink}\n    ${nextLink}\n</head>`);
 
-    const outFile = fromRoot
+    // فقط برای صفحات داخل پوشه، همه لینک‌های relative را یه سطح بالا می‌بریم
+    if (!isRoot) {
+      pageHtml = fixRelativeLinks(pageHtml);
+    }
+
+    const outFile = isRoot
       ? path.join(__dirname, '..', 'announcements.html')
       : path.join(pagesDir, `page-${pageNum}.html`);
 
