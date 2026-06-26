@@ -54,14 +54,6 @@ function stripPinPrefix(text) {
   return text;
 }
 
-// فقط asset های root (css, js, png, ...) رو fix می‌کنه
-// لینک‌های html و pagination رو دست نمی‌زنه چون آن‌ها را جداگانه می‌سازیم
-function fixAssetLinks(html) {
-  return html
-    .replace(/href="(?!https?:\/\/|#|\.\.\/|\/|mailto:|tel:)([^"]+\.css[^"]*)"/g, 'href="../$1"')
-    .replace(/src="(?!https?:\/\/|\/|\.\.\/|data:)([^"]+)"/g, 'src="../$1"');
-}
-
 // ─── دریافت پست‌ها از تلگرام ──────────────────────────────
 async function fetchPosts(beforeId = null) {
   const url = beforeId
@@ -117,24 +109,14 @@ async function fetchAllLivePosts() {
   return allLive;
 }
 
-// ─── تبدیل nav لینک‌های html برای صفحات داخل پوشه ─────────
-// index.html → ../index.html  |  services.html → ../services.html  |  ...
-function fixHtmlNavLinks(html) {
-  // فقط href های .html که relative هستند (نه http، نه #، نه ../)
-  return html.replace(
-    /href="(?!https?:\/\/|#|\.\.\/|\/|mailto:|tel:)([^"]+\.html[^"]*)"/g,
-    'href="../$1"'
-  );
-}
-
 // ─── HTML پست معمولی (accordion) ──────────────────────────
 function postToHtml(post, dateFormatter) {
-  const lines     = post.text.split('\n');
-  const firstLine = lines[0].trim();
-  const headline  = firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : firstLine;
-  const bodyText  = lines.slice(1).join('\n').trim();
+  const lines       = post.text.split('\n');
+  const firstLine   = lines[0].trim();
+  const headline    = firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : firstLine;
+  const bodyText    = lines.slice(1).join('\n').trim();
   const displayDate = dateFormatter.format(new Date(post.isoDate));
-  const uid       = post.postId.replace(/[^a-z0-9]/gi, '_');
+  const uid         = post.postId.replace(/[^a-z0-9]/gi, '_');
 
   if (!bodyText) {
     return `<article class="info-card" style="display:block; border-right:4px solid #33417A; margin-bottom:12px; padding:14px 16px;" itemscope itemtype="https://schema.org/SocialMediaPosting">
@@ -164,12 +146,12 @@ function postToHtml(post, dateFormatter) {
 // ─── HTML پست پین‌شده (accordion) ─────────────────────────
 function pinnedPostToHtml(post, dateFormatter) {
   const cleanedText = stripPinPrefix(post.text);
-  const lines     = cleanedText.split('\n');
-  const firstLine = lines[0].trim();
-  const headline  = firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : firstLine;
-  const bodyText  = lines.slice(1).join('\n').trim();
+  const lines       = cleanedText.split('\n');
+  const firstLine   = lines[0].trim();
+  const headline    = firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : firstLine;
+  const bodyText    = lines.slice(1).join('\n').trim();
   const displayDate = dateFormatter.format(new Date(post.isoDate));
-  const uid       = 'pin_' + post.postId.replace(/[^a-z0-9]/gi, '_');
+  const uid         = 'pin_' + post.postId.replace(/[^a-z0-9]/gi, '_');
 
   const bodyHtml = bodyText
     ? `<div id="body_${uid}" style="display:none; padding:0 18px 14px; border-top:1px solid #f0b070;">
@@ -205,14 +187,12 @@ function pinnedPostToHtml(post, dateFormatter) {
 }
 
 // ─── ناوبری صفحات ─────────────────────────────────────────
-// لینک‌ها با مسیر کامل از root سایت (بدون ../) ساخته می‌شن
-// چون مرورگر همیشه آن‌ها را نسبت به root resolve می‌کند
+// همه لینک‌ها absolute از root سایت - کار می‌کنه از هر جایی
 function buildPagination(currentPage, totalPages) {
   if (totalPages <= 1) return '';
 
   let links = '';
   for (let i = 1; i <= totalPages; i++) {
-    // مسیر absolute از root سایت
     const href   = i === 1 ? '/announcements.html' : `/announcements-pages/page-${i}.html`;
     const active = i === currentPage
       ? 'background:#33417A;color:#fff;'
@@ -223,6 +203,7 @@ function buildPagination(currentPage, totalPages) {
   return `<div style="text-align:center; margin:24px 0; direction:rtl;">${links}</div>`;
 }
 
+// اسکریپت accordion
 const ACCORDION_SCRIPT = `<script>
 function togglePost(uid) {
   var body  = document.getElementById('body_'  + uid);
@@ -345,21 +326,23 @@ async function main() {
     pageHtml = replaceBetween(pageHtml, '<!-- START_SCHEMA -->',       '<!-- END_SCHEMA -->',
       `\n    <script type="application/ld+json">\n${schemaJson}\n    </script>\n    `);
 
+    // accordion script برای همه صفحات
     pageHtml = pageHtml.replace('</body>', ACCORDION_SCRIPT + '\n</body>');
 
-    const canonical = isRoot ? 'announcements.html' : `announcements-pages/page-${pageNum}.html`;
-    const prevHref  = `/announcements${pageNum === 2 ? '' : `-pages/page-${pageNum - 1}`}.html`;
+    // canonical و prev/next با مسیر absolute
+    const canonical = isRoot ? '/announcements.html' : `/announcements-pages/page-${pageNum}.html`;
+    const prevHref  = pageNum === 2 ? '/announcements.html' : `/announcements-pages/page-${pageNum - 1}.html`;
     const nextHref  = `/announcements-pages/page-${pageNum + 1}.html`;
     const prevLink  = pageNum > 1         ? `<link rel="prev" href="${prevHref}">` : '';
     const nextLink  = pageNum < totalPages ? `<link rel="next" href="${nextHref}">` : '';
     pageHtml = pageHtml.replace('</head>',
       `\n    <link rel="canonical" href="${canonical}">\n    ${prevLink}\n    ${nextLink}\n</head>`);
 
-    // برای فایل‌های داخل پوشه فقط asset ها (css) و nav لینک‌های html رو fix می‌کنیم
-    // pagination دیگه نیازی به fix نداره چون absolute path داره (/announcements-pages/...)
+    // برای صفحات داخل پوشه: base tag می‌گذاریم
+    // این باعث می‌شه همه لینک‌های relative (css، nav، ...) از root سایت resolve بشن
+    // و نیازی به هیچ regex fix نیست
     if (!isRoot) {
-      pageHtml = fixAssetLinks(pageHtml);
-      pageHtml = fixHtmlNavLinks(pageHtml);
+      pageHtml = pageHtml.replace('<head>', '<head>\n    <base href="/">');
     }
 
     const outFile = isRoot
