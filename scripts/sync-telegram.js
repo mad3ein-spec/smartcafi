@@ -54,15 +54,11 @@ function stripPinPrefix(text) {
   return text;
 }
 
-// وقتی فایل داخل پوشه است، همه لینک‌های relative را یه سطح بالا می‌بریم
-// href="style.css" → href="../style.css"
-// href="index.html" → href="../index.html"
-// به لینک‌های خارجی (http/https/#) و مسیرهایی که قبلاً ../ دارند کاری نداریم
-function fixRelativeLinks(html) {
+// فقط asset های root (css, js, png, ...) رو fix می‌کنه
+// لینک‌های html و pagination رو دست نمی‌زنه چون آن‌ها را جداگانه می‌سازیم
+function fixAssetLinks(html) {
   return html
-    // href="..." 
-    .replace(/href="(?!https?:\/\/|#|\.\.\/|\/|mailto:|tel:)([^"]+)"/g, 'href="../$1"')
-    // src="..."
+    .replace(/href="(?!https?:\/\/|#|\.\.\/|\/|mailto:|tel:)([^"]+\.css[^"]*)"/g, 'href="../$1"')
     .replace(/src="(?!https?:\/\/|\/|\.\.\/|data:)([^"]+)"/g, 'src="../$1"');
 }
 
@@ -113,7 +109,6 @@ async function fetchAllLivePosts() {
     console.log(`دریافت صفحه ${++page} از تلگرام...`);
     const batch = await fetchPosts(beforeId);
     if (!batch.length) break;
-
     batch.forEach(p => allLive.set(p.postId, p));
     beforeId = batch[0].numId;
     await new Promise(r => setTimeout(r, 700));
@@ -122,70 +117,122 @@ async function fetchAllLivePosts() {
   return allLive;
 }
 
-// ─── HTML پست معمولی ──────────────────────────────────────
-function postToHtml(post, dateFormatter) {
-  const firstLine   = post.text.split('\n')[0].trim();
-  const headline    = firstLine.length > 70 ? firstLine.slice(0, 70) + '…' : firstLine;
-  const displayDate = dateFormatter.format(new Date(post.isoDate));
-
-  return `<article class="info-card" style="display:block; border-right:4px solid #33417A; margin-bottom:16px; padding:16px;" itemscope itemtype="https://schema.org/SocialMediaPosting">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:8px; flex-wrap:wrap;">
-                <h3 itemprop="headline" style="margin:0; font-size:1rem; color:#33417A;">${headline}</h3>
-                <time itemprop="datePublished" datetime="${post.isoDate}" style="font-size:0.78rem; color:#888; white-space:nowrap;">${displayDate}</time>
-            </div>
-            <p itemprop="articleBody" style="line-height:1.8; white-space:pre-line; margin:0 0 10px 0;">${post.text}</p>
-            <a itemprop="url" href="${post.postLink}" target="_blank" rel="nofollow noopener" style="font-size:0.8rem; color:#229ED9; text-decoration:none;">مشاهده پست اصلی در کانال تلگرام ←</a>
-        </article>`;
+// ─── تبدیل nav لینک‌های html برای صفحات داخل پوشه ─────────
+// index.html → ../index.html  |  services.html → ../services.html  |  ...
+function fixHtmlNavLinks(html) {
+  // فقط href های .html که relative هستند (نه http، نه #، نه ../)
+  return html.replace(
+    /href="(?!https?:\/\/|#|\.\.\/|\/|mailto:|tel:)([^"]+\.html[^"]*)"/g,
+    'href="../$1"'
+  );
 }
 
-// ─── HTML پست پین‌شده ─────────────────────────────────────
+// ─── HTML پست معمولی (accordion) ──────────────────────────
+function postToHtml(post, dateFormatter) {
+  const lines     = post.text.split('\n');
+  const firstLine = lines[0].trim();
+  const headline  = firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : firstLine;
+  const bodyText  = lines.slice(1).join('\n').trim();
+  const displayDate = dateFormatter.format(new Date(post.isoDate));
+  const uid       = post.postId.replace(/[^a-z0-9]/gi, '_');
+
+  if (!bodyText) {
+    return `<article class="info-card" style="display:block; border-right:4px solid #33417A; margin-bottom:12px; padding:14px 16px;" itemscope itemtype="https://schema.org/SocialMediaPosting">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                <h3 itemprop="headline" style="margin:0; font-size:0.95rem; color:#33417A;">${headline}</h3>
+                <time itemprop="datePublished" datetime="${post.isoDate}" style="font-size:0.75rem; color:#888; white-space:nowrap;">${displayDate}</time>
+              </div>
+              <a itemprop="url" href="${post.postLink}" target="_blank" rel="nofollow noopener" style="font-size:0.78rem; color:#229ED9; text-decoration:none; margin-top:8px; display:inline-block;">مشاهده در تلگرام ←</a>
+            </article>`;
+  }
+
+  return `<article class="info-card" style="display:block; border-right:4px solid #33417A; margin-bottom:12px; overflow:hidden;" itemscope itemtype="https://schema.org/SocialMediaPosting">
+            <button onclick="togglePost('${uid}')" style="width:100%; background:none; border:none; cursor:pointer; padding:14px 16px; display:flex; justify-content:space-between; align-items:center; gap:12px; text-align:right; flex-wrap:wrap;">
+              <h3 itemprop="headline" style="margin:0; font-size:0.95rem; color:#33417A; flex:1;">${headline}</h3>
+              <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+                <time itemprop="datePublished" datetime="${post.isoDate}" style="font-size:0.75rem; color:#888; white-space:nowrap;">${displayDate}</time>
+                <span id="arrow_${uid}" style="color:#33417A; font-size:0.8rem; transition:transform 0.2s;">▼</span>
+              </div>
+            </button>
+            <div id="body_${uid}" style="display:none; padding:0 16px 14px; border-top:1px solid #e8eaf0;">
+              <p itemprop="articleBody" style="line-height:1.8; white-space:pre-line; margin:12px 0 10px 0; color:#333;">${bodyText}</p>
+              <a itemprop="url" href="${post.postLink}" target="_blank" rel="nofollow noopener" style="font-size:0.78rem; color:#229ED9; text-decoration:none;">مشاهده پست اصلی در کانال تلگرام ←</a>
+            </div>
+          </article>`;
+}
+
+// ─── HTML پست پین‌شده (accordion) ─────────────────────────
 function pinnedPostToHtml(post, dateFormatter) {
   const cleanedText = stripPinPrefix(post.text);
-  const firstLine   = cleanedText.split('\n')[0].trim();
-  const headline    = firstLine.length > 70 ? firstLine.slice(0, 70) + '…' : firstLine;
+  const lines     = cleanedText.split('\n');
+  const firstLine = lines[0].trim();
+  const headline  = firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : firstLine;
+  const bodyText  = lines.slice(1).join('\n').trim();
   const displayDate = dateFormatter.format(new Date(post.isoDate));
+  const uid       = 'pin_' + post.postId.replace(/[^a-z0-9]/gi, '_');
 
-  return `<article style="
-              display:block; position:relative;
-              background: linear-gradient(135deg, #fff8f0 0%, #fff3e8 100%);
-              border: 1.5px solid #f0b070; border-right: 5px solid #e07000;
-              border-radius: 10px; margin-bottom: 14px; padding: 18px 18px 14px;
-              box-shadow: 0 2px 10px rgba(224,112,0,0.08); overflow: hidden;
-            " itemscope itemtype="https://schema.org/SocialMediaPosting">
-            <div style="position:absolute; top:0; left:0;
-              background: linear-gradient(135deg, #e07000, #c45c00); color:#fff;
-              font-size:0.65rem; font-weight:bold; padding: 4px 12px 4px 10px;
-              border-radius: 0 0 10px 0; letter-spacing:0.04em;">📌 اطلاعیه مهم</div>
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; flex-wrap:wrap; margin-top:16px;">
-                <h3 itemprop="headline" style="margin:0; font-size:1rem; color:#7a3800; font-weight:700;">${headline}</h3>
+  const bodyHtml = bodyText
+    ? `<div id="body_${uid}" style="display:none; padding:0 18px 14px; border-top:1px solid #f0b070;">
+         <p itemprop="articleBody" style="line-height:1.9; white-space:pre-line; margin:12px 0 12px 0; color:#3d2000; font-size:0.95rem;">${bodyText}</p>
+         <a href="${post.postLink}" target="_blank" rel="nofollow noopener"
+            style="display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; color:#fff;
+                   background:#e07000; padding:5px 14px; border-radius:20px; text-decoration:none;">
+           مشاهده در تلگرام ←
+         </a>
+       </div>`
+    : `<div style="padding:0 18px 14px;">
+         <a href="${post.postLink}" target="_blank" rel="nofollow noopener"
+            style="display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; color:#fff;
+                   background:#e07000; padding:5px 14px; border-radius:20px; text-decoration:none;">
+           مشاهده در تلگرام ←
+         </a>
+       </div>`;
+
+  const clickAttr = bodyText ? `onclick="togglePost('${uid}')" style="cursor:pointer;"` : 'style=""';
+  const arrow     = bodyText ? `<span id="arrow_${uid}" style="color:#e07000; font-size:0.8rem; flex-shrink:0; transition:transform 0.2s;">▼</span>` : '';
+
+  return `<article style="display:block; position:relative; background:linear-gradient(135deg,#fff8f0,#fff3e8); border:1.5px solid #f0b070; border-right:5px solid #e07000; border-radius:10px; margin-bottom:14px; box-shadow:0 2px 10px rgba(224,112,0,0.08); overflow:hidden;" itemscope itemtype="https://schema.org/SocialMediaPosting">
+            <div style="position:absolute; top:0; left:0; background:linear-gradient(135deg,#e07000,#c45c00); color:#fff; font-size:0.65rem; font-weight:bold; padding:4px 12px 4px 10px; border-radius:0 0 10px 0; z-index:1;">📌 اطلاعیه مهم</div>
+            <div ${clickAttr} style="padding:18px 18px 14px; margin-top:10px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+              <h3 itemprop="headline" style="margin:0; font-size:1rem; color:#7a3800; font-weight:700; flex:1;">${headline}</h3>
+              <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
                 <time itemprop="datePublished" datetime="${post.isoDate}" style="font-size:0.75rem; color:#b07030; white-space:nowrap;">${displayDate}</time>
+                ${arrow}
+              </div>
             </div>
-            <p itemprop="articleBody" style="line-height:1.9; white-space:pre-line; margin:0 0 12px 0; color:#3d2000; font-size:0.95rem;">${cleanedText}</p>
-            <a itemprop="url" href="${post.postLink}" target="_blank" rel="nofollow noopener"
-               style="display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; color:#fff;
-                      background:#e07000; padding:5px 14px; border-radius:20px; text-decoration:none;">
-              مشاهده در تلگرام ←
-            </a>
-        </article>`;
+            ${bodyHtml}
+          </article>`;
 }
 
 // ─── ناوبری صفحات ─────────────────────────────────────────
-// همه لینک‌ها از دید فایل داخل پوشه نوشته می‌شن (../announcements.html و page-N.html)
-// برای صفحه ۱ که در root است، fixRelativeLinks آن‌ها را درست می‌کند
+// لینک‌ها با مسیر کامل از root سایت (بدون ../) ساخته می‌شن
+// چون مرورگر همیشه آن‌ها را نسبت به root resolve می‌کند
 function buildPagination(currentPage, totalPages) {
   if (totalPages <= 1) return '';
 
   let links = '';
   for (let i = 1; i <= totalPages; i++) {
-    const href   = i === 1 ? '../announcements.html' : `page-${i}.html`;
+    // مسیر absolute از root سایت
+    const href   = i === 1 ? '/announcements.html' : `/announcements-pages/page-${i}.html`;
     const active = i === currentPage
       ? 'background:#33417A;color:#fff;'
       : 'background:#f0f2f8;color:#33417A;';
     links += `<a href="${href}" style="${active} padding:6px 14px; border-radius:6px; text-decoration:none; font-size:0.9rem; margin:0 3px;">${i}</a>`;
   }
 
-  return `<div style="text-align:center; margin: 24px 0; direction:rtl;">${links}</div>`;
+  return `<div style="text-align:center; margin:24px 0; direction:rtl;">${links}</div>`;
 }
+
+const ACCORDION_SCRIPT = `<script>
+function togglePost(uid) {
+  var body  = document.getElementById('body_'  + uid);
+  var arrow = document.getElementById('arrow_' + uid);
+  if (!body) return;
+  var open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.style.transform = open ? '' : 'rotate(180deg)';
+}
+</script>`;
 
 // ─── اصلی ─────────────────────────────────────────────────
 async function main() {
@@ -237,19 +284,16 @@ async function main() {
   });
 
   const lastUpdatedText = `آخرین بروزرسانی: ${dateFormatter.format(new Date())}`;
-  // baseTemplate همیشه از announcements.html اصلی خوانده می‌شود
-  const baseTemplate = fs.readFileSync(pageFile, 'utf8');
+  const baseTemplate    = fs.readFileSync(pageFile, 'utf8');
 
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-    const isRoot  = pageNum === 1;
-    const slice   = regularPosts.slice((pageNum - 1) * postsPerPage, pageNum * postsPerPage);
-
-    // pagination همیشه با مسیر نسبی از داخل پوشه نوشته می‌شه
+    const isRoot = pageNum === 1;
+    const slice  = regularPosts.slice((pageNum - 1) * postsPerPage, pageNum * postsPerPage);
     const pagination = buildPagination(pageNum, totalPages);
 
     let postsHtml = '';
 
-    if (pageNum === 1 && pinnedPosts.length > 0) {
+    if (isRoot && pinnedPosts.length > 0) {
       postsHtml += `<div style="margin-bottom:28px;">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
           <span style="display:inline-block; width:4px; height:20px; background:#e07000; border-radius:2px;"></span>
@@ -295,25 +339,27 @@ async function main() {
       ? 'اطلاعیه‌های ثبت‌نام - کافی‌نت بیات'
       : `اطلاعیه‌ها - صفحه ${pageNum} - کافی‌نت بیات`;
 
-    // ابتدا HTML پایه را می‌سازیم (با مسیرهای root)
     let pageHtml = baseTemplate.replace(/<title>[^<]*<\/title>/, `<title>${pageTitle}</title>`);
     pageHtml = replaceBetween(pageHtml, '<!-- START_POSTS -->',        '<!-- END_POSTS -->',        '\n        ' + postsHtml);
     pageHtml = replaceBetween(pageHtml, '<!-- LAST_UPDATED_START -->', '<!-- LAST_UPDATED_END -->', lastUpdatedText);
     pageHtml = replaceBetween(pageHtml, '<!-- START_SCHEMA -->',       '<!-- END_SCHEMA -->',
       `\n    <script type="application/ld+json">\n${schemaJson}\n    </script>\n    `);
 
-    // canonical و prev/next
+    pageHtml = pageHtml.replace('</body>', ACCORDION_SCRIPT + '\n</body>');
+
     const canonical = isRoot ? 'announcements.html' : `announcements-pages/page-${pageNum}.html`;
-    const prevHref  = pageNum === 2 ? '../announcements.html' : `page-${pageNum - 1}.html`;
-    const nextHref  = isRoot ? `announcements-pages/page-${pageNum + 1}.html` : `page-${pageNum + 1}.html`;
+    const prevHref  = `/announcements${pageNum === 2 ? '' : `-pages/page-${pageNum - 1}`}.html`;
+    const nextHref  = `/announcements-pages/page-${pageNum + 1}.html`;
     const prevLink  = pageNum > 1         ? `<link rel="prev" href="${prevHref}">` : '';
     const nextLink  = pageNum < totalPages ? `<link rel="next" href="${nextHref}">` : '';
     pageHtml = pageHtml.replace('</head>',
       `\n    <link rel="canonical" href="${canonical}">\n    ${prevLink}\n    ${nextLink}\n</head>`);
 
-    // فقط برای صفحات داخل پوشه، همه لینک‌های relative را یه سطح بالا می‌بریم
+    // برای فایل‌های داخل پوشه فقط asset ها (css) و nav لینک‌های html رو fix می‌کنیم
+    // pagination دیگه نیازی به fix نداره چون absolute path داره (/announcements-pages/...)
     if (!isRoot) {
-      pageHtml = fixRelativeLinks(pageHtml);
+      pageHtml = fixAssetLinks(pageHtml);
+      pageHtml = fixHtmlNavLinks(pageHtml);
     }
 
     const outFile = isRoot
