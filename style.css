@@ -588,6 +588,80 @@ details[open] .chevron {
   #posts-container button{ padding: 12px 14px !important; }
 }
 
+/* =====================================================
+   سیستم موبایل‌محور — نوار ناوبری پایین + دکمه تماس سریع
+   اولویت اول نمایش روی موبایل است؛ نسخه دسکتاپ همان هدر/منوی
+   بالای صفحه قبلی را حفظ می‌کند.
+   ===================================================== */
+
+/* دکمه تماس سریع در هدر — فقط موبایل */
+.header-call-btn{
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.header-call-btn svg{ width: 18px; height: 18px; }
+
+/* نوار ناوبری پایین (Bottom Tab Bar) — هسته‌ی تجربه‌ی موبایلی */
+.bottom-nav{
+  display: none;
+}
+
+@media (max-width: 767px){
+  /* فضای کافی برای نوار پایین تا محتوا زیرش گم نشود */
+  body{ padding-bottom: 70px; }
+
+  /* روی موبایل منوی بالای هدر جای خود را به نوار پایین می‌دهد */
+  .site-header .site-nav{ display: none; }
+  .site-header .page-wrap{
+    flex-direction: row;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+  }
+  .header-call-btn{ display: flex; }
+
+  .bottom-nav{
+    display: flex;
+    position: fixed;
+    bottom: 0; right: 0; left: 0;
+    z-index: 200;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 16px rgba(32,35,31,0.06);
+    padding: 4px 2px calc(4px + env(safe-area-inset-bottom));
+  }
+  .bn-item{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 7px 2px;
+    text-decoration: none;
+    color: var(--ink-faint);
+    font-size: 0.66rem;
+    font-weight: 600;
+    min-height: 48px;
+  }
+  .bn-item svg{ width: 21px; height: 21px; }
+  .bn-item.active{ color: var(--accent); }
+  .bn-item.active svg{ stroke-width: 2.1; }
+}
+
+/* جلوگیری از زوم ناخواسته‌ی سافاری روی فیلدهای ورودی در موبایل */
+@media (max-width: 480px){
+  .filter-input{ font-size: 1rem; padding: 13px 42px 13px 16px; }
+  .btn{ width: 100%; }
+  .hero-actions .btn{ width: 100%; }
+}
+
 /* ---------- فوتر ---------- */
 .site-footer {
   border-top: 1px solid var(--line);
