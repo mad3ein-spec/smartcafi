@@ -1,4 +1,3 @@
-cat > /mnt/user-data/outputs/about.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -6,7 +5,6 @@ cat > /mnt/user-data/outputs/about.html << 'HTMLEOF'
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>درباره ما - کافی‌نت بیات</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         /* ── بخش هیرو با پس‌زمینه خطوط سند ── */
         .about-hero {
@@ -159,11 +157,32 @@ cat > /mnt/user-data/outputs/about.html << 'HTMLEOF'
         .loc-badge.blue  { background:var(--accent-soft); color:var(--accent); border-color:#c8cde8; }
 
         /* ── نقشه ── */
-        #neshan-map {
+        .loc-card iframe {
             width: 100%;
             height: 230px;
             display: block;
+            border: 0;
         }
+
+        /* ── دکمه اتصال به نشان ── */
+        .btn-neshan {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.85rem;
+            padding: 11px 16px;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            font-family: inherit;
+            transition: opacity .15s;
+        }
+        .btn-neshan:hover { opacity: 0.9; }
+        .btn-neshan svg { width: 16px; height: 16px; flex-shrink: 0; }
 
         /* ── ویژگی‌ها ── */
         .section-head {
@@ -382,8 +401,18 @@ cat > /mnt/user-data/outputs/about.html << 'HTMLEOF'
                     <span class="loc-badge green">🅿️ جای پارک کافی</span>
                     <span class="loc-badge blue">🕐 صبح ۹–۱۳ | عصر ۱۶–۲۱</span>
                 </div>
+                <a class="btn-neshan"
+                   href="https://nshn.ir/?lat=34.55750811180749&lng=48.43914034276"
+                   target="_blank" rel="noopener">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 6.5 11.34 7.06 11.86a1.34 1.34 0 0 0 1.88 0C13.5 21.34 20 15.25 20 10c0-4.42-3.58-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+                    </svg>
+                    مسیریابی با نشان
+                </a>
             </div>
-            <div id="neshan-map"></div>
+            <iframe title="map-iframe"
+                    src="https://neshan.org/maps/iframe/places/_bsL8uV53n4R#c34.558-48.439-21z-0p/34.55750811180749/48.43914034276"
+                    width="100%" height="230" allowFullScreen loading="lazy"></iframe>
         </div>
     </div>
 
@@ -484,60 +513,6 @@ cat > /mnt/user-data/outputs/about.html << 'HTMLEOF'
     </div>
 </footer>
 
-<!-- نقشه نشان با Leaflet مستقل -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-(function(){
-    var lat = 34.5485, lng = 48.4504;
-
-    var map = L.map('neshan-map', {
-        center: [lat, lng],
-        zoom: 16,
-        zoomControl: true,
-        scrollWheelZoom: false
-    });
-
-    L.tileLayer(
-        'https://map.ir/shiraz/{z}/{x}/{y}.png?x-api-key=web.389fd56a063942e5a7e47793a8430174',
-        { attribution: '© نشان', maxZoom: 18 }
-    ).addTo(map);
-
-    /* fallback: اگر تایل نشان لود نشد از OpenStreetMap استفاده کن */
-    var fallbackAdded = false;
-    map.eachLayer(function(layer){
-        if(layer instanceof L.TileLayer){
-            layer.on('tileerror', function(){
-                if(!fallbackAdded){
-                    fallbackAdded = true;
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-                        attribution:'© OpenStreetMap', maxZoom:18
-                    }).addTo(map);
-                }
-            });
-        }
-    });
-
-    var icon = L.divIcon({
-        html: '<div style="background:#33417A;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35)"></div>',
-        iconSize:[14,14], iconAnchor:[7,7], className:''
-    });
-
-    L.marker([lat, lng], {icon: icon})
-        .addTo(map)
-        .bindPopup(
-            '<div style="font-family:Tahoma,sans-serif;direction:rtl;text-align:right;padding:2px 4px">' +
-            '<strong style="color:#33417A">کافی‌نت بیات</strong><br>' +
-            '<span style="font-size:12px;color:#666">شهرک نیروی انتظامی، تویسرکان</span>' +
-            '</div>'
-        ).openPopup();
-})();
-</script>
 
 </body>
 </html>
-HTMLEOF
-echo "done"
-Output
-
-done
-
